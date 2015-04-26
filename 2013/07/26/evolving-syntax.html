@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Evolving syntax</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Jul 26th, 2013
+    </div>
+
+    <div class="body">
+        <h1>Evolving syntax</h1>
+
+<p>As languages become more widely used and the needs of their users evolve, they
+often grow. Some languages are designed to support such changing needs, but
+most of them are not.</p>
+
+<p>This leads to rather intrusive changes to the language itself; to both its
+syntax and its semantics.</p>
+
+<h2>Outdated distribution</h2>
+
+<p>A very common problem that many software projects have is lack of adoption of
+new versions. Browsers are an excellent example of this, But it exists on the
+server as well. On one hand you have linux distributions, who tend to be
+rather conservative. On the other hand there&#39;s hosting companies, who don&#39;t
+want to invest in maintaining support for multiple platforms.</p>
+
+<p>This leads to this recursive problem of hosting companies not upgrading
+because they don&#39;t have to, and software not requiring newer versions of their
+programming language, because they don&#39;t want to lose their users.</p>
+
+<p>The longer your dependency chain is, the more you suffer from this. If you are
+using framework X, which depends on PHP 5.3, which depends on a certain
+compiler and a set of C libraries, you need to wait for every part of the
+chain to be updated before you can start using it.</p>
+
+<p>Another way of looking at it is: The more extensible those low-level pieces
+are, the less you will suffer from outdated distribution.</p>
+
+<h2>Lisp macros</h2>
+
+<p>I <a href="/2012/12/29/sexpr-macros.html">already blogged about macros</a> before, but I
+shall briefly re-introduce the concept here.</p>
+
+<p>Most lisps have a syntax entirely based on lists, called
+<a href="/2012/12/06/sexpr.html">s-expressions</a>. Since the entire code is represented
+as a list, it can be treated as code or as data.</p>
+
+<p>Macros allow you to define special functions that operate at compile-time. The
+source code is parsed into an AST (the list in memory), and macros are able to
+transform this AST before it gets evaluated.</p>
+
+<p>Macros are AST transformations. In a sense they are source-to-source
+compilers.</p>
+
+<p><center>
+    <img src="/img/evolving-syntax/macro.png" alt="macro">
+</center></p>
+
+<h2>Macros without uniform syntax</h2>
+
+<p>All code is in form of lists in lisp. Which makes it easy to parse and modify.
+This is sometimes referred to as uniform syntax.</p>
+
+<p>Most languages don&#39;t have uniform syntax, so how would a macro system in a
+language such as PHP look like?</p>
+
+<p>The general concept still stands: It&#39;s an AST transformation. You take the
+higher level source code, feed it through a macro and receive a lower-level
+equivalent.</p>
+
+<p>And this is actually quite an interesting idea, because you could invent new
+syntax and language features, as long as they could be compiled down to the
+existing set of features.</p>
+
+<p>I toyed with this idea in my <a href="https://speakerdeck.com/igorw/introduction-to-lisp-dpc13?slide=98">lisp introduction at
+DPC</a>. What
+if we had macro capabilities in PHP? What sort of features could we add to the
+language?</p>
+
+<p>One example that I came up with was a <strong>short class constructor</strong> syntax. In
+the Dependency Injection Age, most constructors are just a series of argument
+assignments.</p>
+
+<p>What if this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">class Foo($bar) {</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Could be transformed into this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">class Foo {</span>
+<span class="x">    private $bar;</span>
+<span class="x">    public function __construct($bar) {</span>
+<span class="x">        $this-&gt;bar = $bar;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Wouldn&#39;t that remove an incredibe amount of boilerplate?</p>
+
+<p>Another project that plays with this idea is shaunxcode&#39;s
+<a href="https://github.com/shaunxcode/transmogrifier">transmogrifier</a>.</p>
+
+<h2>Backporting</h2>
+
+<p>Do you still use libraries that run on PHP 5.3? Or 5.2? Are you yourself still
+running on 5.3, which will soon reach its end of life?</p>
+
+<p>Quite often libraries will support old versions. Or somebody will fork a
+library, and rewrite it for the older version of PHP they happen to be using.
+They will actually manually rewrite parts of it.</p>
+
+<p>Why not automate this? I can&#39;t be the only person who ever considered writing
+a script to make new code work on old versions (<a href="https://github.com/nikic/PHP-Backporter">I&#39;m
+not</a>). This thought crossed my mind a
+long time ago, because it seemed useful at the time.</p>
+
+<p>What I only recently realized is that <strong>backporting existing features and
+inventing new ones is exactly the same thing!</strong> Just from a different
+perspective. One is looking at the future, the other is looking at the past.
+This completely blew my mind!</p>
+
+<p>What if we could have had all of those fancy new features in PHP 5.4 or 5.5
+much earlier? Without having to wait for a new version to be released and the
+distributions to catch up? How long did we have to wait for closures? Short
+array syntax?</p>
+
+<p>Think about it.</p>
+
+<p>That&#39;s when I truly realized how powerful the idea of macros is. It&#39;s not just
+a fancy theoretical idea that lisp fangirls and fanboys fantasize about at
+night. Look at what was actually added to the language. This is <em>real</em>.</p>
+
+<p><center>
+    <img src="/img/evolving-syntax/54_53.png" alt="backport 5.4 to 5.3">
+</center></p>
+
+<h2>Galapagos</h2>
+
+<p>So let&#39;s evolve us some syntax. Let&#39;s see if it can be done. I want to try and
+actually backport the new syntactic features from PHP 5.4 so that they can run
+on PHP 5.3.</p>
+
+<p>For all of the <a href="http://php.net/manual/en/migration54.new-features.php">new features</a>
+introduced in 5.4, it is possible to compile them down to PHP 5.3 syntax.</p>
+
+<ul>
+<li><p>Short arrays:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">[&#39;foo&#39;, &#39;bar&#39;, &#39;baz&#39;]</span>
+
+<span class="x">=&gt;</span>
+
+<span class="x">array(&#39;foo&#39;, &#39;bar&#39;, &#39;baz&#39;)</span>
+</code></pre></div></li>
+<li><p>$this in closures:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">class Foo</span>
+<span class="x">{</span>
+<span class="x">    public function bar()</span>
+<span class="x">    {</span>
+<span class="x">        return function () {</span>
+<span class="x">            return $this-&gt;baz();</span>
+<span class="x">        };</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+
+<span class="x">=&gt;</span>
+
+<span class="x">class Foo</span>
+<span class="x">{</span>
+<span class="x">    public function bar()</span>
+<span class="x">    {</span>
+<span class="x">        $that = $this;</span>
+<span class="x">        return function () use ($that) {</span>
+<span class="x">            return $that-&gt;baz();</span>
+<span class="x">        };</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div></li>
+<li><p>Function array dereferencing:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">foo()[&#39;bar&#39;];</span>
+
+<span class="x">=&gt;</span>
+
+<span class="x">($tmp = foo()) ? $tmp[&#39;bar&#39;] : $tmp[&#39;bar&#39;];</span>
+</code></pre></div></li>
+<li><p>Callable typehint:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function foo(callable $bar)</span>
+<span class="x">{</span>
+<span class="x">}</span>
+
+<span class="x">=&gt;</span>
+
+<span class="x">function foo($bar)</span>
+<span class="x">{</span>
+<span class="x">    if (!is_callable($bar)) {</span>
+<span class="x">        trigger_error(sprintf(&#39;Argument 1 passed to %s() must be callable, %s given&#39;, __FUNCTION__, gettype($bar)), E_ERROR);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div></li>
+</ul>
+
+<p>Those are the ones that I actually implemented. The tool/library that does
+these transformations is called
+<a href="https://github.com/igorw/galapagos">galapagos</a> and would have not been
+possible without <a href="http://nikic.github.io/">nikic</a>&#39;s excellent
+<a href="https://github.com/nikic/PHP-Parser">PHP-Parser</a>, a PHP parser written in
+PHP.</p>
+
+<p>The parser returns an AST that can be processed. Since the parser supports the
+entire syntax of PHP 5.5, there is no need to extend it in any way. The
+library ships with a <em>node visitor</em> concept. All transformations are
+implemented as node visitors.</p>
+
+<p>If you&#39;re interested in the technical details, I recommend you take a look at
+<a href="https://github.com/igorw/galapagos">the galapagos source</a>.</p>
+
+<p><center>
+    <img src="/img/evolving-syntax/galapagos.png" alt="galapagos turtle">
+</center></p>
+
+<h2>Opportunities</h2>
+
+<p>Once PHP 5.4 is completely backported to 5.3, one could write a set of
+transformations from 5.3 to 5.2. And so on and so forth, allowing PHP 5.4 code
+to pass through the generations and eventually run on PHP/FI.</p>
+
+<p>This would also allow galapagos to compile itself down to previous versions of
+PHP, so you wouldn&#39;t even need 5.4 to run it.</p>
+
+<p>You could exploit the same loophole in the universe that
+<a href="http://antecedent.github.io/patchwork/">Patchwork</a> uses to rewrite source
+code on the fly. Thus eliminating the static compilation step and applying the
+transformation in memory, just as the code is loaded.</p>
+
+<h2>Limitations</h2>
+
+<p>Source-to-source works for many types of syntactical features, but there are
+limitations to what you can do.</p>
+
+<p>Performance will quickly be a limiting factor, especially for PHP, since it
+heavily relies on core features to be implemented in C. Some of these
+transformations will not come for free.</p>
+
+<p>Certain features simply cannot easily be implemented as AST transformations.
+While even something like generators theoretically <a href="https://github.com/clojure/core.async">could be implemented as a
+macro</a>, it&#39;s extremely hard to do. At
+that point you&#39;re almost <a href="https://github.com/ircmaxell/PHPPHP">implementing PHP in
+PHP</a>.</p>
+
+<p>And some features simply <em>need</em> the underlying engine. Any I/O mechanism,
+anything that interacts with the operating system, needs engine support.</p>
+
+<h2>Conclusion</h2>
+
+<p>Being able to invent your own syntax is very useful, which instantly becomes
+apparent when you look at the past. Features get added to languages all the
+time. What if you could do that easily, within minutes instead of months?</p>
+
+<p>When a language <a href="https://www.youtube.com/watch?v=_ahvzDzKdB0">is able to grow</a>
+and evolve with its users&#39; needs, outdated distribution becomes less of an
+issue.</p>
+
+<p>Is PHP able to grow that way? Only to a very limited extent. The lack of
+uniform syntax makes it a lot more difficult to add new features in a safe and
+composable manner. It might <a href="http://sweetjs.org">kinda work</a> though.</p>
+
+<p>Macros are extremely powerful, perhaps a little <a href="http://www.lambdassociates.org/blog/bipolar.htm">too
+powerful</a>.</p>
+
+<blockquote>
+<p><em>Lisp is so powerful that problems which are technical issues in other
+programming languages are social issues in Lisp.</em></p>
+
+<p><em>&mdash; Rudolf Winestock, <a href="http://www.winestockwebdesign.com/Essays/Lisp_Curse.html">The Lisp Curse</a></em></p>
+</blockquote>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

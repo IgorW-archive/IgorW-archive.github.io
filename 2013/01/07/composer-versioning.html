@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Composer Version Constraints</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Jan 7th, 2013
+    </div>
+
+    <div class="body">
+        <h1>Composer Version Constraints</h1>
+
+<blockquote>
+<p>If you don&#39;t know what composer is, <a href="http://getcomposer.org/">go to the composer
+homepage</a> and start reading.</p>
+</blockquote>
+
+<p>I&#39;ve seen many people struggle with the constraints they put on their composer
+dependencies. Hopefully this post will shed some light on why certain things
+are bad, and how to avoid them. I will start out with the worst possible
+scenario, then improve the constraints step by step.</p>
+
+<h2>The almighty asterisk</h2>
+
+<p>Composer has a dependency resolver, so it should be able to automagically
+figure out what I need, right? Wrong.</p>
+
+<p>Declaring a version constraint of <code>*</code> is probably one of the worst things you
+can do. Because you have absolutely no control over what you will get. It
+could be <em>any</em> version that matches your <code>minimum-stability</code> and other
+constraints.</p>
+
+<p>Essentially you are playing a game of russian dependency roulette with
+composer, eventually you will get hurt by it. And then you will probably blame
+the tool for failing you so badly.</p>
+
+<p>If you&#39;re going to be careless, please at least depend on the latest
+development version, which is usually labeled as <code>dev-master</code>.</p>
+
+<h2>Hard-coded branch names</h2>
+
+<p>So now you are using <code>dev-master</code>. The problem is that <code>dev-master</code> is a
+moving target. For one, you will always get unstable packages (unstable in
+terms of composer&#39;s stability flags). But the bigger problem is that the
+meaning of <code>dev-master</code> can change at any time.</p>
+
+<p>Let&#39;s say that it represents the latest <code>1.0</code> development version. At some
+point the author of said library starts working on the <code>1.1</code> release, so they
+branch off a <code>1.0</code> branch, and <code>dev-master</code> becomes the latest <code>1.1</code> dev
+version.</p>
+
+<p>Unless you are tracking the development of that library very closely, you will
+not notice this until you run <code>composer update</code>, it blows up in your face, and
+ruins your day. That&#39;s why referencing branch names directly is not a
+sustainable solution. Luckily composer is here to help with branch aliases.</p>
+
+<h2>Branch alias</h2>
+
+<p>A branch alias is a property that package maintainers can put into their
+<code>composer.json</code>, that allows branch names to be mapped to versions. For branch
+names like <code>1.0</code>, <code>2.1</code>, etc. this is not necessary -- composer already
+handles those.</p>
+
+<p>But with a branch name like <code>master</code> which produces a version named
+<code>dev-master</code>, you should definitely alias it. The composer docs have <a href="http://getcomposer.org/doc/articles/aliases.md">a
+great article on aliasing</a>
+that explains how branch aliases can be defined:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;extra&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;branch-alias&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">&quot;dev-master&quot;</span><span class="p">:</span> <span class="s2">&quot;1.0.x-dev&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>This maps the <code>dev-master</code> version to a <code>1.0.x-dev</code> alias. Which essentially
+means that you can require the package with a <code>1.0.*@dev</code> constraint. The nice
+thing about this is that the meaning of <code>1.0</code> is defined and will not change.
+It will also make switching to stable versions easier.</p>
+
+<p>The caveat of branch aliases is that package maintainers need to put them in.
+If you are using a library that does not have a branch alias, send them a pull
+request adding the above <code>extra</code> section to their <code>composer.json</code>.</p>
+
+<h2>Stable releases</h2>
+
+<p>The <code>1.0.*@dev</code> constraint is already quite good. The problem however is that
+there is no stable version yet. This is not problematic for your code - apart
+from the fact that you are running an unstable version that the maintainer has
+not committed to.</p>
+
+<p>But if you have other people depending on your package, then your users either
+need to explicitly require your dependency with a <code>@dev</code> flag to allow
+composer to install the unstable version, or worse yet lower their
+<code>minimum-stability</code>, which means they get unstable versions of <em>everything</em>.</p>
+
+<p>To avoid juggling around dev versions it&#39;s much better to just tag releases.
+If you are using a library that has no tagged releases, go and annoy the
+maintainer until they tag. Do it, now!</p>
+
+<blockquote>
+<p>We as the composer community need to take responsibility. We need to tag
+releases, we should maintain CHANGELOGs. It&#39;s hard to do, but makes a huge
+difference for the ecosystem as a whole. Remember to tag responsibly and
+<a href="http://semver.org/">semantically</a>.</p>
+</blockquote>
+
+<p>When you have a stable release, you can remove the <code>@dev</code> flag and change your
+constraint to <code>1.0.*</code>.</p>
+
+<h2>Next Significant Release</h2>
+
+<p>If the dependency that you&#39;re using is adhering to the rules of semantic
+versioning and keeps strict BC for point releases, then you can improve the
+constraint even more.</p>
+
+<p>Right now with <code>1.0.*</code> there will be some potential compatibility problems as
+soon as there is a <code>1.1</code> release. If you depend on <code>1.0</code> but somebody else
+needs a feature from <code>1.1</code> (which is backwards-compatible, remember?), they
+cannot install it. So you need to resort to do something like <code>1.*</code>.</p>
+
+<p>That&#39;s great, except when you start depending on features from <code>1.1</code>, then you
+can no longer use it, as it will still match the <code>1.0</code> version. Which has
+missing features.</p>
+
+<p>So then you do <code>&gt;=1.1,&lt;2.0</code>, but that&#39;s annoying. Enter the tilde operator,
+which allows you to express this in a clean way: <code>~1.1</code>. This means &quot;any <code>1.*</code>
+of <code>1.1</code> or above&quot;. And there you have it, encourage semantic versioning to
+take advantage of the tilde and maximise inter-package compatibility.</p>
+
+<h2>TLDR</h2>
+
+<ul>
+<li>Use <a href="http://getcomposer.org/doc/articles/aliases.md#branch-alias"><code>branch-alias</code></a>.</li>
+<li>Tag releases, do it responsibly and <a href="http://semver.org/">semantically</a>.</li>
+<li>Use the <a href="http://getcomposer.org/doc/01-basic-usage.md#package-versions">tilde operator</a>.</li>
+</ul>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: Variables</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 4th, 2014
+    </div>
+
+    <div class="body">
+        <h1>Stack Machines: Variables</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html"><strong>variables</strong></a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<p>The virtual machine that has been implemented so far is limited in storage, because the only data structure is a stack. While the stack can grow infinitely large, it is only possible to access the top element. There is no way to index into it.</p>
+
+<p>We will introduce a notion of variables that are stored separately from the data stack.</p>
+
+<h2>What is a variable?</h2>
+
+<p>A variable is a name for some location in memory. This sounds super similar to labels, and as a matter of fact, variables are often compiled to labels.</p>
+
+<p>We will however look at variables as a higher level concept. A variable is a named container. It contains a value, and this value can change over time.</p>
+
+<p>The value of a variable can be read and written. There are <strong>load</strong> and <strong>store</strong> commands.</p>
+
+<h2>Load &amp; Store</h2>
+
+<p>In this first iteration, variables will be global and shared. There will be no explicit allocation of space. Variables will be dynamically allocated, once a <strong>store</strong> instruction is executed.</p>
+
+<p>To store a value, we will introduce a <code>!var(varname)</code> instruction. It takes the name of the variable to store to. It pops a value from the stack and stores it.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">42 !var(answer)
+</code></pre></div>
+<p>To read a value, we will introduce a <code>var(varname)</code> instruction. It pushes the value of the variable into the stack.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">var(answer)
+</code></pre></div>
+<h2>Alphabet</h2>
+
+<p>To illustrate how variables can be used to make programs easier to understand, here is a program that prints all letters of the alphabet:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text"># i = 97
+# ascii(97) is a
+97 !var(i)
+
+label(loop)
+    # print i
+    # i++
+    # jump if i == 123
+    # ascii(122) is z
+    var(i) .
+    var(i) 1 + !var(i)
+    var(i) 123 -
+    jnz(loop)
+
+# print \n
+10 .
+</code></pre></div>
+<h2>Implementation</h2>
+
+<p>Variables are named values. They will be stored separately from the data stack. So we will just create a separate hash map that stores all vars.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$vars = [];</span>
+</code></pre></div>
+<p>The <strong>store</strong> instruction pops a value from the stack and stores it in the hash map.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">if (preg_match(&#39;/^!var\((.+)\)$/&#39;, $op, $match)) {</span>
+<span class="x">    $var = $match[1];</span>
+<span class="x">    $vars[$var] = $stack-&gt;pop();</span>
+<span class="x">    continue;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>The <strong>load</strong> instruction looks up the value from the hash map and push it onto the data stack.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">if (preg_match(&#39;/^var\((.+)\)$/&#39;, $op, $match)) {</span>
+<span class="x">    $var = $match[1];</span>
+<span class="x">    $stack-&gt;push($vars[$var]);</span>
+<span class="x">    continue;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>That is all we need for now.</p>
+
+<h2>Print numbers literally</h2>
+
+<p>For the next example program, we will need a way to print a number (as opposed to the ascii value of a number). The instruction to do that will be called <code>.num</code>.</p>
+
+<p>It just pops a number from the stack and outputs it:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">switch ($op) {</span>
+<span class="x">    // ...</span>
+<span class="x">    case &#39;.num&#39;:</span>
+<span class="x">        echo $stack-&gt;pop();</span>
+<span class="x">        break;</span>
+<span class="x">}</span>
+</code></pre></div>
+<h2>Example</h2>
+
+<p>We will now look at a slightly more complicated program, namely a fibonacci sequence generator. This will be an iterative implementation.</p>
+
+<p>It uses four variables that change over time.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text"># define vars
+0 !var(i)
+0 !var(p)
+1 !var(n)
+0 !var(tmp)
+
+# output i prev
+var(i) .num 32 .
+var(p) .num 10 .
+
+# output i n
+var(i) .num 32 .
+var(n) .num 10 .
+
+label(next)
+
+# tmp = n + p
+# p = n
+# n = tmp
+var(p) var(n) + !var(tmp)
+var(n) !var(p)
+var(tmp) !var(n)
+
+# output i n
+var(i) .num 32 .
+var(n) .num 10 .
+
+# i++
+var(i) 1 + !var(i)
+
+jmp(next)
+</code></pre></div>
+<p>This program is more or less equivalent to a dog race, in the same sense that it will determine the 1475&#39;s fibonacci number to be <strong>INF</strong> [∞].</p>
+
+<p><center>
+    <p><img src="/img/stack-machine-variables/dogs.gif"></p>
+    <p><em>PS: It never ends!!!</em></p>
+</center></p>
+
+<h2>Globals</h2>
+
+<p>These variables are global. The side-effects of global variables are sometimes also referred to as &quot;spooky action at a distance&quot;.</p>
+
+<p>However, if the machine in question does not support calls, then everything is global. Or rather, everything will be local. Thus no side-effects will occur.</p>
+
+<p><center>
+    <p><img src="/img/stack-machine-variables/scary.gif"></p>
+    <p><em>Credits to <a href="https://twitter.com/AndreaFaulds">@AndreaFaulds</a> for the spooky.gif</em></p>
+</center></p>
+
+<p><strong>Side-note:</strong> <em>We are approaching turing completeness.</em></p>
+
+<h2>Summary</h2>
+
+<p><span style="background-color: yellow;">
+    Adding variables to an RPN calculator enables indexed storage and retrieval of values.
+</span></p>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html"><strong>variables</strong></a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

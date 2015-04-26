@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: Fundamentals</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Aug 28th, 2013
+    </div>
+
+    <div class="body">
+        <h1>Stack Machines: Fundamentals</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html"><strong>fundamentals</strong></a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<p>This series will explore design and implementation of virtual stack machines.
+That is, virtual machines whose operations are based on a stack. This post
+will cover the basics.</p>
+
+<h2>The stack, a data structure</h2>
+
+<p>So what is a stack? It&#39;s a data structure with two operations: <strong>push</strong> and
+<strong>pop</strong>. You can push values on the stack, and pop them from the stack. This
+happens in LIFO (last in, first out) order.</p>
+
+<p><center>
+    <img src="/img/stack-machine/stack-ops.png" alt="stack operations">
+</center></p>
+
+<p>This data type is fundamental to the design of a stack machine. Implementing a
+stack is quite easy, especially when you have an <strong>array</strong> that holds a list
+of discretely-sized cells and is index-addressable.</p>
+
+<p>In addition to the array that is used for data storage, you will need to have
+a <strong>stack pointer</strong>. Which just points to the current head of the stack, and
+gets incremented and decremented as elements are pushed and popped.</p>
+
+<p>Here is a basic implementation in C:</p>
+<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">int</span> <span class="n">sp</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="kt">double</span> <span class="n">val</span><span class="p">[</span><span class="n">MAXVAL</span><span class="p">];</span>
+
+<span class="kt">void</span> <span class="nf">push</span><span class="p">(</span><span class="kt">double</span> <span class="n">f</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">val</span><span class="p">[</span><span class="n">sp</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">double</span> <span class="nf">pop</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="n">val</span><span class="p">[</span><span class="o">--</span><span class="n">sp</span><span class="p">];</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Many languages already have such a data structure built in. PHP has
+<code>array_push</code> and <code>array_pop</code> functions and an <code>SplStack</code> class. ECMAScript has
+<code>push</code> and <code>pop</code> methods on the array prototype.</p>
+
+<h2>Instructions</h2>
+
+<p>In order to be actually useful, a stack machine also needs instructions. It
+needs to define an instruction set, and it needs a way to store and access
+those instructions.</p>
+
+<p><center>
+    <img src="/img/stack-machine/instructions.png" alt="instructions">
+</center></p>
+
+<p>Instructions usually pop one or more values from the stack, do some
+computation, and push the result.</p>
+
+<p>An instruction set can contain operations such as <strong>push</strong> for pushing values,
+arithmetic like <strong>add</strong>, <strong>subtract</strong>, <strong>multiply</strong>, <strong>divide</strong>, etc., control
+flow that affects which instruction is executed, or even host-specific
+operations such as I/O.</p>
+
+<h2>Execution</h2>
+
+<p>In the above example there are three instructions:</p>
+
+<ul>
+<li>Push the value 3</li>
+<li>Push the value 4</li>
+<li>Pop two values and add them, push the result</li>
+</ul>
+
+<p>The machine executes them in sequence, reading the instructions one by one.
+Usually there is an <strong>instruction pointer</strong> (sometimes also called <strong>program
+counter</strong>) that points to the next instruction, and gets incremented after
+every operation.</p>
+
+<p>The state of the stack changes during the execution of those steps. The final
+state should hopefully be something like this:</p>
+
+<p><center>
+    <img src="/img/stack-machine/stack-7.png" alt="stack with result 7">
+</center></p>
+
+<p>Usually, when the end of the instructions is reached, the value at the top of
+the stack is returned to the caller. In this case, the value <strong>7</strong> would be
+popped from the stack and returned.</p>
+
+<h2>Summary</h2>
+
+<ul>
+<li>A virtual stack machine consists of a stack and instructions.</li>
+<li>Stack is a data structure with two operations: push and pop.</li>
+<li>Instructions use the values on the stack.</li>
+</ul>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html"><strong>fundamentals</strong></a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

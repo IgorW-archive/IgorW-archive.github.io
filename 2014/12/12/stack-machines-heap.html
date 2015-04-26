@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: Heap</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 12th, 2014
+    </div>
+
+    <div class="body">
+        <h1>Stack Machines: Heap</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html"><strong>heap</strong></a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<p>So far the machines presented have all been stack based. We will now consider an alternate memory model that will completely replace the stack. The <strong>heap</strong> is a sequential block of memory.</p>
+
+<p>This will also have implications for execution, as memory must be addressed by the instructions that load from and write to it.</p>
+
+<h2>Heap Machines</h2>
+
+<p>While we could augment a stack machine with a heap, it will be clearer to drop the existing assumptions and understand that the execution model can be changed in a way that is completely different.</p>
+
+<p>So let us begin from scratch and build a heap machine.</p>
+
+<p><center>
+    <img src="/img/stack-machine-heap/reaction-face.gif">
+</center></p>
+
+<h2>The heap</h2>
+
+<p>A stack is limited in the sense that you cannot peek below the surface. It also requires pushing things in reverse order of consumption.</p>
+
+<p>The heap, on the other hand, is more like a large array of values. You can index into arbitrary locations of the array, called <strong>addresses</strong>. The fact that elements can be accessed randomly is why memory is also known as <strong>RAM</strong>, which stands for <em>random access memory</em>.</p>
+
+<p>The heap is where you store things. Numbers. And then later on you can go and fetch them or change them.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$heap = [];</span>
+</code></pre></div>
+<h2>Execution</h2>
+
+<p>Execution is still a matter of looping over instructions and making decisions in a <code>switch</code> statement. However, the format of the instructions will change significantly.</p>
+
+<p>Instead of implicitly addressing memory via the stack, it will now have to be done explicitly. And this means every instruction will need to be parameterised with the addresses of inputs and outputs.</p>
+
+<p>For elementary operations, this will usually be up to three addresses. For a binary operation, that would be two input addresses, and one output address. For this reason, such an encoding is often called a <em>three-address code</em>.</p>
+
+<p>Here is an example program that stores two values in memory and then adds them.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">store 1 0</span>
+<span class="x">store 8 1</span>
+<span class="x">add 0 1 2</span>
+</code></pre></div>
+<p>As you can see, the format has changed a little. There is one instruction per line, and arguments are separated by spaces.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$ops = array_map(</span>
+<span class="x">    function ($line) { return explode(&#39; &#39;, $line); },</span>
+<span class="x">    explode(&quot;\n&quot;, $code)</span>
+<span class="x">);</span>
+</code></pre></div>
+<p>When fetching the instruction, the operation needs to be separated from its arguments. That provides the general framework in which instructions can be added to the machine.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$ip = 0;</span>
+<span class="x">$heap = [];</span>
+
+<span class="x">while ($ip &lt; count($ops)) {</span>
+<span class="x">    $op_args = $ops[$ip++];</span>
+<span class="x">    $op = array_shift($op_args);</span>
+<span class="x">    $args = $op_args;</span>
+
+<span class="x">    switch ($op) {</span>
+<span class="x">        // ...</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<h2>Storage</h2>
+
+<p>First we will implement the <strong>store</strong> instruction.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">store $value $address
+</code></pre></div>
+<p>It takes a value and stores it at a particular address in the heap. The address is just the index or offset.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">switch ($op) {</span>
+<span class="x">    case &#39;store&#39;:</span>
+<span class="x">        list($value, $addr) = $args;</span>
+<span class="x">        $heap[$addr] = $value;</span>
+<span class="x">        break;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>These two instructions:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">store 1 0</span>
+<span class="x">store 8 1</span>
+</code></pre></div>
+<p>Will store the number <code>1</code> at address <code>0</code> and the number <code>8</code> at address <code>1</code>. The heap looks like this:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">[1, 8]
+</code></pre></div>
+<h2>Arithmetic</h2>
+
+<p>Addition is a binary operation, so it requires three addresses. Two for input, one for output.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">add $a $b $c
+</code></pre></div>
+<p>The implementation reads the two values, adds them, stores the result back:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">switch ($op) {</span>
+<span class="x">    // ...</span>
+<span class="x">    case &#39;add&#39;:</span>
+<span class="x">        list($a, $b, $c) = $args;</span>
+<span class="x">        $heap[$c] = $heap[$a] + $heap[$b];</span>
+<span class="x">        break;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>This instruction:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">add 0 1 2</span>
+</code></pre></div>
+<p>Will store the sum of addresses <code>0</code> and <code>1</code> in address <code>2</code>. The heap looks like this:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">[1, 8, 9]
+</code></pre></div>
+<h2>I/O</h2>
+
+<p>We will now recover some of the operations that are useful for general computation. To get I/O back, we can have two instructions: <code>print_num</code> and <code>print_char</code>.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">switch ($op) {</span>
+<span class="x">    // ...</span>
+<span class="x">    case &#39;print_num&#39;:</span>
+<span class="x">        list($addr) = $args;</span>
+<span class="x">        echo $heap[$addr];</span>
+<span class="x">        break;</span>
+<span class="x">    case &#39;print_char&#39;:</span>
+<span class="x">        list($addr) = $args;</span>
+<span class="x">        echo chr($heap[$addr]);</span>
+<span class="x">        break;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>This will allow actually outputting the values stored on the heap.</p>
+
+<h2>Jumps</h2>
+
+<p>Finally, we will recover conditional jumps. This is where one curiousity may become apparent. So far, addresses have referred to locations of instructions. Now they are referring to locations of both instructions <em>and</em> values.</p>
+
+<p>But instructions are stored in <code>$ops</code> whereas values are stored in <code>$heap</code>. So they are referencing two completely different segments of memory.</p>
+
+<p>Unconditional jumps take one argument, the absolute address of the instruction to jump to:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">switch ($op) {</span>
+<span class="x">    // ...</span>
+<span class="x">    case &#39;jump&#39;:</span>
+<span class="x">        list($op_addr) = $args;</span>
+<span class="x">        $ip = $op_addr;</span>
+<span class="x">        break;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Conditional jumps take two arguments, the condition address and the target address:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">switch ($op) {</span>
+<span class="x">    // ...</span>
+<span class="x">    case &#39;jumpz&#39;:</span>
+<span class="x">        list($cond_addr, $op_addr) = $args;</span>
+<span class="x">        if ($heap[$cond_addr] === 0) {</span>
+<span class="x">            $ip = $op_addr;</span>
+<span class="x">        }</span>
+<span class="x">        break;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>And just like that, conditional branching is back.</p>
+
+<p><center>
+    <img src="/img/stack-machine-heap/pinkie-pie.gif">
+</center></p>
+
+<h2>Conclusion</h2>
+
+<p>So what are the advantages of storing information on the heap, rather than the stack?</p>
+
+<p>Elements can be indexed arbitrarily. Although variables allowed this for stack machines too. At least within a stack frame.</p>
+
+<p>The heap becomes a lot more powerful when you want data to be available across execution contexts. This could either be for the purpose of global state or closing over state after returning from a procedure call.</p>
+
+<p>The heap as implemented right now allocates implicitly. The system will actually use <code>malloc</code> to dynamically allocate a block of memory, and then <code>free</code> to release that memory when it is no longer needed.</p>
+
+<h2>Summary</h2>
+
+<p><span style="background-color: yellow;">
+    A heap machine allows storing information at arbitrary locations in memory and referencing them by address later on.
+</span></p>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html"><strong>heap</strong></a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

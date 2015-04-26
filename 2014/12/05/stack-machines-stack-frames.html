@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: Stack Frames</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 5th, 2014
+    </div>
+
+    <div class="body">
+        <h1>Stack Machines: Stack Frames</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html"><strong>stack-frames</strong></a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<p>The last two posts introduced two separate concepts: <strong>calls</strong> and <strong>variables</strong>. The variables so far are global. We will now see that by applying lessons learned from procedure calls, variables can be made local!</p>
+
+<h2>Local variables</h2>
+
+<p>What does it mean to have locally scoped variables, and why is that desirable?</p>
+
+<p>Locally scoped variables are unaffected by procedure calls. This makes understanding a procedure easier, because there is sufficient isolation between it and the rest of the system.</p>
+
+<p>It comes down to reasoning about effects.</p>
+
+<h2>Call stack</h2>
+
+<p>The call stack has been defined as a place where return addresses are stored. Every time a procedure is called, the <strong>instruction pointer</strong> <code>$ip</code> is backed up into the call stack. On <code>ret</code>, that instruction pointer is restored.</p>
+
+<p>You might already be familiar with the call stack from a few places. For example, if you have an unbounded recursive call, you will produce a <strong>stack overflow</strong> in most languages. This just means you have exceeded the maximum size of the call stack.</p>
+
+<p>Another common place where the call stack is visible is when dealing with Exceptions, as it is very common for them to include a <strong>stack trace</strong>. A stack trace is just a visualization of the call stack. And since the call stack has return addresses, it is a log of how you got to your current location.</p>
+
+<p><center>
+    <img src="/img/stack-machine-stack-frames/trace.png">
+</center></p>
+
+<h2>Frames</h2>
+
+<p>So far we have defined the execution context to just be <code>$ip</code>. But we can extend that definition.</p>
+
+<p>In addition to <code>$ip</code>, it is possible to backup other parts of the execution context onto the call stack when performing a call, that can be restored later on. For example, the <strong>variables</strong>!</p>
+
+<p>To group those values on the call stack, we put them into a box. That box is called a <strong>stack frame</strong>, and it looks like this:</p>
+
+<p><center>
+    <img src="/img/stack-machine-stack-frames/frame.png">
+</center></p>
+
+<h2>Implementation</h2>
+
+<p>Implementation is simply a matter of adding <code>$vars</code> next to the instruction pointer on the call stack.</p>
+
+<p>Backing up values when performing a call:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">if (preg_match(&#39;/^call\((.+)\)$/&#39;, $op, $match)) {</span>
+<span class="x">    $label = $match[1];</span>
+<span class="x">    $calls-&gt;push([$ip, $vars]);</span>
+<span class="x">    $ip = $labels[$label];</span>
+<span class="x">    continue;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>To prevent the called procedure from having access to the vars of its caller, it might be a good idea to reset them to an empty hash map as part of the call instruction:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$vars = [];</span>
+</code></pre></div>
+<p>Restoring values when returning from a call:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">switch ($op) {</span>
+<span class="x">    // ...</span>
+<span class="x">    case &#39;ret&#39;:</span>
+<span class="x">        list($ip, $vars) = $calls-&gt;pop();</span>
+<span class="x">        break;</span>
+<span class="x">}</span>
+</code></pre></div>
+<h2>Example</h2>
+
+<p>And here is an example program that verifies the locality of variables:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">jmp(start)
+
+label(foo)
+    1 !var(i)
+    ret
+
+label(start)
+    0 !var(i)
+    call(foo)
+    var(i) .num
+</code></pre></div>
+<p>It prints <code>0</code>, showing that the local store in <code>foo</code> had no effect on the main execution scope.</p>
+
+<p><center>
+    <img src="/img/stack-machine-stack-frames/money.gif" width="500">
+</center></p>
+
+<h2>Summary</h2>
+
+<p><span style="background-color: yellow;">
+    The call stack holds a trace of stack frames, which contain instruction pointers representing execution contexts, and all the state necessary to restore those contexts.
+</span></p>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html"><strong>stack-frames</strong></a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

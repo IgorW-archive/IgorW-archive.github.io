@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Dependency Responsibility</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Sep 24th, 2013
+    </div>
+
+    <div class="body">
+        <h1>Dependency Responsibility</h1>
+
+<p>Convenience is great, and many tools provide you with it. Dependency managers
+are one such tool that allow you to easily install any library instantly. But
+you should not use them blindly. There are more important considerations than
+<em>&quot;I want foo right now&quot;</em>. Which type of foo do you want, and how long do you
+want it to last?</p>
+
+<h2>Hairball as a Service</h2>
+
+<p>You can get everything as a service these days. Your software, your
+infrastructure, your platform, your development, your design. You click one
+button and get a whole stack of fluff that you cannot understand or even peek
+into for that matter.</p>
+
+<p>It sounds like a sweet deal. You don&#39;t have to care about how things work. It
+just works.</p>
+
+<p>Except you&#39;re forgetting that it&#39;s software. And software breaks. How do you
+fix it? By turning it off and on again. That works most of the time, but
+eventually you will hit that monster bug that makes your system completely
+FUBAR. And now there is nothing you can do about it, because you are not in
+charge.</p>
+
+<h2>Dependencies</h2>
+
+<p>Overly relying on convenience also exists in the small. You have a requirement
+in your software project, so you install a pre-made library that solves the
+problem for you. It&#39;s usually just one command away.</p>
+
+<p>As far as you&#39;re concerned, this library is a black box. You don&#39;t care how it
+works. You just install it and use it.</p>
+
+<p>Except you&#39;re forgetting that it&#39;s software. And software breaks. How do you
+fix it?</p>
+
+<p>At this point you may have to fix a bug in the library. Writing correct
+programs is difficult, submitting some patches upstream is not a big deal, and
+helps everyone else using that package as well.</p>
+
+<p>But what if:</p>
+
+<ul>
+<li>That bug broke your website, negatively impacting your sales</li>
+<li>It was a security issue that compromised your customers&#39; data</li>
+<li>It was a performance problem that made your site go down completely</li>
+</ul>
+
+<h2>Liability</h2>
+
+<p>Who is liable in open source? Whoever wrote the library that you are using?
+<strong>No.</strong></p>
+
+<p>Every OSS license clearly states that the author is not liable and that there
+is no warranty. If the software you installed makes your server go up in
+smoke, it is <em>your</em> fault.</p>
+
+<p>The upside of OSS is that you <em>are</em> in charge, and you actually <em>can</em> fix
+things when they break. Also, you can prevent them from breaking in the first
+place.</p>
+
+<h2>Responsibility</h2>
+
+<p>When you install a library, <em>you</em> are responsible for the code in that
+library. You are also responsible for the dependencies of your dependencies.
+For any code that you run, it is your responsibility to ensure that it
+operates correctly.</p>
+
+<p>This means that you have to review all of the code that you put into
+production. And make sure it does not contain any destructive bugs or security
+issues. As a by-product, you will properly understand that code, and will be
+able to debug and fix it if things do go wrong.</p>
+
+<h2>Trust</h2>
+
+<p>Obviously it is impossible to review and fully understand every bit of code we
+run. You probably do not vet the source code of the linux kernel, your
+operating system utilities, the webserver of your choosing, your language
+runtime.</p>
+
+<p>It is simply too much code that moves too quickly. So instead you decide to
+trust the maintainers of those packages not to mess it up. Since there is a
+community who peer-reviews, hopefully most issues will be caught.</p>
+
+<p>It is possible to do that for your library dependencies as well. But it should
+be a conscious decision. A well maintained package with a strong community and
+strong BC guarantees is likely to be more trustworthy than some random
+library by some random person on the internets.</p>
+
+<p>But even if it is well maintained, think twice before you trust a code base.
+Even popular packages can be huge piles of garbage.</p>
+
+<h2>Conclusion</h2>
+
+<ul>
+<li>You are responsible for all the code you run in production.</li>
+<li>Keep stability, security and performance in mind.</li>
+<li>Think twice before you trust a package blindly.</li>
+</ul>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

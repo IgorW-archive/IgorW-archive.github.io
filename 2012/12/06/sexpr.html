@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>S-expressions</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 6th, 2012
+    </div>
+
+    <div class="body">
+        <h1>S-expressions</h1>
+
+<p>(<a href="/2012/12/06/sexpr.html"><strong>sexpr</strong></a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+<p>A symbolic expression is a notation of a nested list structure. It&#39;s origin
+lies within the Lisp family of programming languages whose entire syntax
+consists of these expressions.</p>
+
+<p>I want to introduce you to the syntax and in subsequent posts go into how it
+can be parsed and interpreted.</p>
+
+<h2>Syntax</h2>
+
+<p>An s-expression is either an atom or an ordered pair of s-expressions. In
+practice that just means that you have lists of s-expressions that can be
+nested.</p>
+
+<p>An atom is a symbol which is essentially a value that is not a list. Here are
+a few examples of atoms:</p>
+
+<ul>
+<li><code>foo</code></li>
+<li><code>an-atom</code></li>
+<li><code>42</code></li>
+</ul>
+
+<p>Lists are represented by parentheses. They can be empty, or hold atoms,
+delimited by spaces.</p>
+
+<ul>
+<li><code>()</code></li>
+<li><code>(foo)</code></li>
+<li><code>(foo bar)</code></li>
+<li><code>(foo bar baz)</code></li>
+</ul>
+
+<p>Lists can also contain other lists, allowing them to be nested:</p>
+
+<ul>
+<li><code>((foo) (bar))</code></li>
+<li><code>((a 1) (b 2))</code></li>
+<li><code>(alpha (beta (gamma (delta))))</code></li>
+</ul>
+
+<p>This should give you a basic understanding of how the sexpr syntax works.</p>
+
+<h2>Representing data</h2>
+
+<p>You can use this format to represent data, just as you would use XML or JSON.
+In fact, let&#39;s take the <code>composer.json</code> from
+<a href="https://github.com/igorw/yolo">YOLO</a> (the microframework with swag):</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;igorw/yolo&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;The microframework with swag.&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;keywords&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;useless&quot;</span><span class="p">,</span> <span class="s2">&quot;microframework&quot;</span><span class="p">,</span> <span class="s2">&quot;academic&quot;</span><span class="p">,</span> <span class="s2">&quot;swag&quot;</span><span class="p">],</span>
+    <span class="nt">&quot;license&quot;</span><span class="p">:</span> <span class="s2">&quot;MIT&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;authors&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Igor Wiedler&quot;</span><span class="p">,</span>
+            <span class="nt">&quot;email&quot;</span><span class="p">:</span> <span class="s2">&quot;igor@wiedler.ch&quot;</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+    <span class="err">...</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>And transpose it to sexpr:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">dict</span> <span class="p">(</span><span class="nv">name</span> <span class="s">&quot;igorw/yolo&quot;</span><span class="p">)</span>
+      <span class="p">(</span><span class="nv">description</span> <span class="s">&quot;The microframework with swag.&quot;</span><span class="p">)</span>
+      <span class="p">(</span><span class="nv">keywords</span> <span class="o">&#39;</span><span class="p">(</span><span class="nv">useless</span> <span class="nv">microframework</span> <span class="nv">academic</span> <span class="nv">swag</span><span class="p">))</span>
+      <span class="p">(</span><span class="nv">license</span> <span class="s">&quot;MIT&quot;</span><span class="p">)</span>
+      <span class="p">(</span><span class="nv">authors</span> <span class="p">(</span><span class="nb">list</span> <span class="p">(</span><span class="nv">dict</span> <span class="p">(</span><span class="nv">name</span> <span class="s">&quot;Igor Wiedler&quot;</span><span class="p">)</span>
+                           <span class="p">(</span><span class="nv">email</span> <span class="s">&quot;igor@wiedler.ch&quot;</span><span class="p">)))))</span>
+</code></pre></div>
+<p>A few things worth noting:</p>
+
+<ul>
+<li>There is a <code>dict</code> keyword, which produces a dictionary from the pairs it
+receives as arguments.</li>
+<li>Strings are written between quotes, which groups them from the whitespace.</li>
+<li>The <code>keywords</code> are represented by a quoted list of atoms.</li>
+<li>The data in <code>authors</code> is explicitly constructed as a list using a <code>list</code>
+construct.</li>
+</ul>
+
+<p>Try not to worry about those details too much at this point. This is just one
+possible way of representing that data.</p>
+
+<blockquote>
+<p>Side note: Wouldn&#39;t it be awesome if composer supported <code>composer.sexpr</code>
+files natively, so that we would no longer have to write JSON? No, not
+really. I would argue that the benefits of a unified standard format
+outweigh pluggability in this case.</p>
+</blockquote>
+
+<h2>Representing code</h2>
+
+<p>What&#39;s really fascinating about s-expressions is that they can be used to
+represent not only data, but also code.</p>
+
+<p>Here is one of the most basic Lisp code snippets:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">+</span> <span class="mi">1</span> <span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+<p>It looks cryptic, but it&#39;s actually quite simple. Instead of infix notation,
+this is using Polish notation, also known as <em>prefix notation</em>. What the
+expression represents is this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">1 + 2</span>
+</code></pre></div>
+<p>The parentheses tell you that it&#39;s a <em>function application</em> or
+function invocation. The first element of the list is a function, the
+remaining elements are the arguments passed to that function. <code>+</code> is simply a
+function which sums up any arguments it receives.</p>
+
+<p>So what about other functions, that are not operators? They work the same way.
+For example, this application:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">foo</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">)</span>
+</code></pre></div>
+<p>Would be written like this in PHP:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">foo($a, $b);</span>
+</code></pre></div>
+<p>That&#39;s about as far as I will go in this post. This should give you an idea
+about the basics of the syntax and how to read it. Stay tuned for follow-up
+posts.</p>
+
+<h2>Conclusion</h2>
+
+<ul>
+<li>S-expressions are a strange looking format that is simple, yet powerful.</li>
+<li>They can represent both data and code.</li>
+<li>I want to know how to parse them in PHP.</li>
+</ul>
+
+<hr>
+
+<p>(<a href="/2012/12/06/sexpr.html"><strong>sexpr</strong></a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

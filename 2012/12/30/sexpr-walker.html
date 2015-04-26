@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>S-expressions: Walker</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 30th, 2012
+    </div>
+
+    <div class="body">
+        <h1>S-expressions: Walker</h1>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html"><strong>walker</strong></a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+<p>The previous post introduced a basic macro system that recursively expands
+macros at runtime. This allows users to define their own language constructs,
+but is missing a very important aspect of what a macro system should do.</p>
+
+<p>Generally, macros are instructions that are applied by a pre-processor. That
+means that they are applied to the source or tree of the program <em>before</em> it
+runs.</p>
+
+<p>The advantage of this is that you get huge performance gains. Not only do you
+avoid having to expand every time the program is run, by having a separation
+of compile-time and runtime you can do calculations of constant values during
+compile time and just inline the results.</p>
+
+<h2>Code walker</h2>
+
+<p>The program that pre-processes macros is called a code walker. It walks
+through the AST, finds the macro calls and expands them.</p>
+
+<p><center>
+    <img src="/sexpr/walker.png" alt="walker">
+</center></p>
+
+<p>There are several possibilities as to when this compilation step should
+happen. If the Lisp implementation has a notion of files and possibly
+compilation of the files to some form of bytecode, then it usually happens on
+a per-file basis. In the context of a <abbr title="read-eval-print
+loop">REPL</abbr>, compilation often occurs for each entered form before it is
+evaluated.</p>
+
+<p>I will adopt the latter approach for Ilias, because I want to be able to
+define and use macros in the same program.</p>
+
+<p>The most obvious location to perform expansion is in the <code>Program</code> class,
+since it is the glue that loops through the forms and evaluates them. The
+<code>Walker</code> class will have an <code>expand</code> method that translates a form. Here are
+the additions to <code>Program</code>:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias;</span>
+
+<span class="x">class Program</span>
+<span class="x">{</span>
+<span class="x">    ...</span>
+<span class="x">    private $walker;</span>
+
+<span class="x">    public function __construct(..., Walker $walker)</span>
+<span class="x">    {</span>
+<span class="x">        ...</span>
+<span class="x">        $this-&gt;walker = $walker;</span>
+<span class="x">    }</span>
+
+<span class="x">    public function evaluate(Environment $env, $code)</span>
+<span class="x">    {</span>
+<span class="x">        ...</span>
+
+<span class="x">        foreach ($forms as $form) {</span>
+<span class="x">            $expanded = $this-&gt;walker-&gt;expand($env, $form);</span>
+<span class="x">            $value = $expanded-&gt;evaluate($env);</span>
+<span class="x">        }</span>
+
+<span class="x">        ...</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<h2>Basic recursive expansion</h2>
+
+<p>The basic version of the walker takes an environment and a form, and must
+check if the form is a macro. If yes, it must expand the macro, producing a
+new form which it returns. For non-macros, it just returns the form unchanged.</p>
+
+<p>This is relatively easy to do, since we can just use the existing
+<code>MacroOp::expandOne()</code> method. And since that call can return yet another
+macro, we recur the <code>expand</code> call.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias;</span>
+
+<span class="x">use Igorw\Ilias\Form\Form;</span>
+<span class="x">use Igorw\Ilias\Form\SymbolForm;</span>
+<span class="x">use Igorw\Ilias\Form\ListForm;</span>
+
+<span class="x">class Walker</span>
+<span class="x">{</span>
+<span class="x">    public function expand(Environment $env, Form $form)</span>
+<span class="x">    {</span>
+<span class="x">        if (!$this-&gt;isExpandable($env, $form)) {</span>
+<span class="x">            return $form;</span>
+<span class="x">        }</span>
+
+<span class="x">        if (!$this-&gt;isMacroCall($env, $form)) {</span>
+<span class="x">            return $form;</span>
+<span class="x">        }</span>
+
+<span class="x">        $macro = $this-&gt;getMacroOp($env, $form);</span>
+<span class="x">        $args = $form-&gt;cdr();</span>
+<span class="x">        $expanded = $macro-&gt;expandOne($env, $args);</span>
+
+<span class="x">        return $this-&gt;expand($env, $expanded);</span>
+<span class="x">    }</span>
+
+<span class="x">    private function isExpandable(Environment $env, Form $form)</span>
+<span class="x">    {</span>
+<span class="x">        return $form instanceof ListForm;</span>
+<span class="x">    }</span>
+
+<span class="x">    private function isMacroCall(Environment $env, ListForm $form)</span>
+<span class="x">    {</span>
+<span class="x">        return $this-&gt;isFormOfType($env, $form, &#39;Igorw\Ilias\SpecialOp\MacroOp&#39;);</span>
+<span class="x">    }</span>
+
+<span class="x">    private function isFormOfType(Environment $env, ListForm $form, $type)</span>
+<span class="x">    {</span>
+<span class="x">        return $form-&gt;nth(0) instanceof SymbolForm</span>
+<span class="x">            &amp;&amp; $form-&gt;nth(0)-&gt;existsInEnv($env)</span>
+<span class="x">            &amp;&amp; $form-&gt;nth(0)-&gt;evaluate($env) instanceof $type;</span>
+<span class="x">    }</span>
+
+<span class="x">    private function getMacroOp(Environment $env, ListForm $form)</span>
+<span class="x">    {</span>
+<span class="x">        return $form-&gt;nth(0)-&gt;evaluate($env);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>You will notice that the <code>ListForm</code> has a new <code>nth</code> method, which is a
+convenience method for accessing an element of the list by index.</p>
+
+<p>This walker already handles many cases. The following is expanded correctly.</p>
+
+<p>Single level macro:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">defmacro</span> <span class="nv">plus</span> <span class="p">(</span><span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="nb">list</span> <span class="ss">&#39;+</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">))</span>
+<span class="p">(</span><span class="nv">plus</span> <span class="mi">1</span> <span class="mi">2</span><span class="p">)</span>
+<span class="nv">=&gt;</span>
+<span class="p">(</span><span class="nb">+</span> <span class="mi">1</span> <span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+<p>Two-level macro:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">defmacro</span> <span class="nv">plus</span> <span class="p">(</span><span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="nb">list</span> <span class="ss">&#39;+</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">))</span>
+<span class="p">(</span><span class="nb">defmacro</span> <span class="nv">pl</span> <span class="p">(</span><span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="nb">list</span> <span class="ss">&#39;plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">))</span>
+<span class="p">(</span><span class="nv">pl</span> <span class="mi">1</span> <span class="mi">2</span><span class="p">)</span>
+<span class="nv">=&gt;</span>
+<span class="p">(</span><span class="nb">+</span> <span class="mi">1</span> <span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+<h2>Sub-lists</h2>
+
+<p>Currently only top-level macro calls are expanded. That means that the
+following incomplete transformation will happen for a nested list:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">plus</span> <span class="mi">1</span> <span class="p">(</span><span class="nv">plus</span> <span class="mi">2</span> <span class="mi">3</span><span class="p">))</span>
+<span class="nv">=&gt;</span>
+<span class="p">(</span><span class="nb">+</span> <span class="mi">1</span> <span class="p">(</span><span class="nv">plus</span> <span class="mi">2</span> <span class="mi">3</span><span class="p">))</span>
+</code></pre></div>
+<p>Instead of just returning non-macro list forms directly, expansion must recur
+on their sub-lists. And sure enough, with a few small changes this can be
+done.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">public function expand(Environment $env, Form $form)</span>
+<span class="x">{</span>
+<span class="x">    ...</span>
+
+<span class="x">    if (!$this-&gt;isMacroCall($env, $form)) {</span>
+<span class="x">        return $this-&gt;expandSubLists($env, $form);</span>
+<span class="x">    }</span>
+
+<span class="x">    ...</span>
+<span class="x">}</span>
+
+<span class="x">private function expandSubLists(Environment $env, ListForm $form)</span>
+<span class="x">{</span>
+<span class="x">    if (!count($form-&gt;toArray())) {</span>
+<span class="x">        return $form;</span>
+<span class="x">    }</span>
+
+<span class="x">    return new ListForm(array_merge(</span>
+<span class="x">        [$form-&gt;nth(0)],</span>
+<span class="x">        $this-&gt;expandList($env, $form-&gt;cdr())</span>
+<span class="x">    ));</span>
+<span class="x">}</span>
+
+<span class="x">private function expandList(Environment $env, ListForm $form)</span>
+<span class="x">{</span>
+<span class="x">    return array_map(</span>
+<span class="x">        function ($form) use ($env) {</span>
+<span class="x">            return $this-&gt;expand($env, $form);</span>
+<span class="x">        },</span>
+<span class="x">        $form-&gt;toArray()</span>
+<span class="x">    );</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>And with this adjustment in place it will correctly expand the sub-list:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">plus</span> <span class="mi">1</span> <span class="p">(</span><span class="nv">plus</span> <span class="mi">2</span> <span class="mi">3</span><span class="p">))</span>
+<span class="nv">=&gt;</span>
+<span class="p">(</span><span class="nb">+</span> <span class="mi">1</span> <span class="p">(</span><span class="nb">+</span> <span class="mi">2</span> <span class="mi">3</span><span class="p">))</span>
+</code></pre></div>
+<p>Even if it is inside a lambda expression:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">))</span>
+<span class="nv">=&gt;</span>
+<span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="nb">+</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">))</span>
+</code></pre></div>
+<p>At this point almost all cases are handled. There is still one specific
+problematic case though.</p>
+
+<h2>Special form awareness</h2>
+
+<p>Some special forms have special interpretations of their list arguments, and
+do not treat them as function applications. The most prominent example of this
+is the argument list of the <code>lambda</code> special form.</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span> <span class="mi">5</span><span class="p">))</span>
+</code></pre></div>
+<p>This function takes a <code>plus</code> argument which is a function and two numbers <code>a</code>
+and <code>b</code>. It applies <code>plus</code> to the two numbers and the number <code>5</code>. Regardless
+of whether this function makes sense or not, there is a problem at compile
+time.</p>
+
+<p>The first issue is that the walker will try to expand the argument list. It
+does not treat lambda forms in any special way. In fact, it does not even know
+what a lambda form is, it just sees a list and tries to expand it.</p>
+
+<p>That will result in something like this:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nb">+</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span> <span class="mi">5</span><span class="p">))</span>
+</code></pre></div>
+<p>The second issue is that the walker will try to expand the body in this case,
+even though <code>plus</code> is a lexical variable of the lambda. This happens because
+it is not aware of lexical scoping rules.</p>
+
+<p>Also, the <code>plus</code> macro only takes two arguments, so this extra argument of <code>5</code>
+will make it blow up. If the macro system provided access to all of the
+arguments as a list, it would not blow up, but it would still expand, which is
+not what we want here.</p>
+
+<p>In order to fix those two issues, the walker needs to be aware of special
+forms, in this case the <code>lambda</code> special form, and handle the argument list
+and the bound parameters inside the lambda body in a different way than normal
+lists.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">public function expand(Environment $env, Form $form)</span>
+<span class="x">{</span>
+<span class="x">    if (!$this-&gt;isExpandable($env, $form)) {</span>
+<span class="x">        return $form;</span>
+<span class="x">    }</span>
+
+<span class="x">    if ($this-&gt;isLambdaForm($env, $form)) {</span>
+<span class="x">        return $this-&gt;expandLambdaForm($env, $form);</span>
+<span class="x">    }</span>
+
+<span class="x">    ...</span>
+<span class="x">}</span>
+
+<span class="x">private function isLambdaForm(Environment $env, ListForm $form)</span>
+<span class="x">{</span>
+<span class="x">    return $this-&gt;isFormOfType($env, $form, &#39;Igorw\Ilias\SpecialOp\LambdaOp&#39;);</span>
+<span class="x">}</span>
+
+<span class="x">private function expandLambdaForm(Environment $env, ListForm $form)</span>
+<span class="x">{</span>
+<span class="x">    $subEnv = clone $env;</span>
+<span class="x">    foreach ($form-&gt;nth(1)-&gt;toArray() as $argName) {</span>
+<span class="x">        $subEnv[$argName-&gt;getSymbol()] = null;</span>
+<span class="x">    }</span>
+
+<span class="x">    return new ListForm(array_merge(</span>
+<span class="x">        [$form-&gt;nth(0), $form-&gt;nth(1)],</span>
+<span class="x">        $this-&gt;expandList($subEnv, $form-&gt;cdr()-&gt;cdr())</span>
+<span class="x">    ));</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>All that this does is:</p>
+
+<ul>
+<li><p>Clone the environment, so that changes to it will not affect the overall
+macro expansion process.</p></li>
+<li><p>Override the argument symbols on the environment, setting them to null. This
+ensures that locally scoped variables that share the name of a macro will not
+be expanded.</p></li>
+<li><p>Skip expansion of the argument list, but recur on the lambda body using the
+cloned environment.</p></li>
+</ul>
+
+<p>This will take care of those special cases and ensure that the following
+expands correctly (actually, it correctly lacks expansion):</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">()</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">)))</span>
+<span class="nv">=&gt;</span>
+<span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">()</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">)))</span>
+</code></pre></div>
+<p>And because the cloned environment is passed on to sub-expansions, lexical
+scope is preserved, which means it works for nested lambdas too:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">()</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">()</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">))))</span>
+<span class="nv">=&gt;</span>
+<span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">()</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">()</span> <span class="p">(</span><span class="nv">plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">))))</span>
+</code></pre></div>
+<p>And with that, the walker can correctly expand lambdas at compile time! It
+strips out all of the macro calls and replaces them with the actual code.</p>
+
+<h2>Conclusion</h2>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">defmacro</span> <span class="nb">when</span> <span class="p">(</span><span class="kt">condition</span> <span class="nv">a</span> <span class="nv">b</span> <span class="nv">c</span><span class="p">)</span>
+    <span class="p">(</span><span class="nb">list</span> <span class="ss">&#39;if</span> <span class="kt">condition</span> <span class="p">(</span><span class="nb">list</span> <span class="ss">&#39;begin</span> <span class="nv">a</span> <span class="nv">b</span> <span class="nv">c</span><span class="p">)))</span>
+<span class="p">(</span><span class="nv">define</span> <span class="nv">foo</span>
+    <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">x</span><span class="p">)</span>
+        <span class="p">(</span><span class="nb">when</span> <span class="p">(</span><span class="nb">&gt;</span> <span class="nv">x</span> <span class="mi">10</span><span class="p">)</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span><span class="p">)))</span>
+<span class="nv">=&gt;</span>
+<span class="p">(</span><span class="nv">define</span> <span class="nv">foo</span>
+    <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">x</span><span class="p">)</span>
+        <span class="p">(</span><span class="k">if</span> <span class="p">(</span><span class="nb">&gt;</span> <span class="nv">x</span> <span class="mi">10</span><span class="p">)</span> <span class="p">(</span><span class="nv">begin</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span><span class="p">))))</span>
+</code></pre></div>
+<h2>Further reading</h2>
+
+<ul>
+<li><a href="https://github.com/igorw/ilias/blob/master/src/Igorw/Ilias/Walker.php">Source code: <code>Igorw\Ilias\Walker</code></a></li>
+<li><a href="https://github.com/igorw/ilias/blob/master/tests/Igorw/Ilias/WalkerTest.php">Source code: <code>Igorw\Ilias\WalkerTest</code></a></li>
+<li><a href="https://github.com/igorw/ilias/blob/master/examples/macro-expand.php">Source code: Ilias <code>examples/macro-expand.php</code></a></li>
+</ul>
+
+<hr>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html"><strong>walker</strong></a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

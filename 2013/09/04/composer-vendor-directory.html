@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Composer Vendor Directory</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Sep 4th, 2013
+    </div>
+
+    <div class="body">
+        <h1>Composer Vendor Directory</h1>
+
+<p>A common question in composer support is to install packages into a directory
+other than <code>vendor</code>. I want to explain why that is a bad idea.</p>
+
+<p>Achtung: Might be a little ranty.</p>
+
+<p><center>
+    <img src="/img/binders-vendor.png" alt="binders full of vendor">
+</center></p>
+
+<h2>One True Vendor</h2>
+
+<p>You don&#39;t own your vendor directory. When you use composer, you are waiving
+your right to decide where things go. This is for your own good. You should
+not know where composer puts stuff, and frankly, you should not care.</p>
+
+<p>Composer makes it extremely hard for you to install a package anywhere else
+than the one true vendor directory. And this is by design. And there is a good
+reason for that.</p>
+
+<p>Composer targets the PHP community. It aims to grow the library space.
+Libraries should be small, focused, flexible and avoid side-effects. The user
+should be in control.</p>
+
+<p>What sort of side-effects? Don&#39;t create files unless the user asked for them.
+Don&#39;t use global state such as superglobals. Don&#39;t call echo, header or exit.
+Don&#39;t depend on the location of things in the filesystem, the network or
+otherwise.</p>
+
+<h2>Autoloading</h2>
+
+<p>The loading of classes (and functions, etc.) is no exception to this rule. As
+a user, I want to specify my dependencies, run <strong>one command</strong>, include <strong>one
+file</strong>, and be done with it. I don&#39;t want to care about where stuff is
+located, set up include paths, manually include files, define my own autoload
+mappings.</p>
+
+<p>Autoloading solves this problem. If every library defines its own rules for
+autoloading, PHP takes care of the rest. Libraries don&#39;t have to know where
+they or other libs are located. The user is in control.</p>
+
+<p>A composer-managed application should have exactly one single include
+statement. A require <code>vendor/autoload.php</code> in the front controller.</p>
+
+<p>A library should have zero.</p>
+
+<h2>Single directory</h2>
+
+<p>Putting everything into one directory just makes sense.</p>
+
+<p>First off, debugging composer issues. Composer has come a long way, but
+strange things can happen sometimes. Maybe some files are in an inconsistent
+state, maybe someone deleted something accidentally, maybe there was a bug in
+the solver. The point is, composer is not operating correctly due to the state
+of the vendor directory.</p>
+
+<p>You can just try again by <code>rm -rf vendor &amp;&amp; composer install</code>. You don&#39;t have
+to keep track of zillions of possible directories, it&#39;s all in one place.</p>
+
+<p>Second, deployment. When deploying, I want the stuff right there. I want it in
+the right place, I want to be able to push it all at once. With a single
+directory it doesn&#39;t even matter where I run <code>composer install</code>, because the
+result is consistent and easy to manage as part of the build and deployment
+process.</p>
+
+<p>Third, version control. No need to litter your gitignore with random garbage.</p>
+
+<h2>Isolation</h2>
+
+<p>Remember PEAR? Not only was PEAR itself installed into some global-ish
+location (if you were lucky enough to actually successfully install it), but
+all libraries installed via PEAR were global. If you had two projects
+depending on conflicting versions of the same package, you were screwed.</p>
+
+<p>Enough of that. That&#39;s why composer is a dependency manager and not a package
+manager. It manages deps per-project, it isolates them. It disallows sharing
+the same package directory between projects.</p>
+
+<p>Yes, that means you potentially get two copies, but trust me, it&#39;s totally
+worth it.</p>
+
+<h2>Excuses</h2>
+
+<p>Here are some reasons why you would need to move your packages to a specific
+location:</p>
+
+<ul>
+<li><p><strong>Legacy</strong>: You have some legacy project that heavily relies on the location
+of files. You cannot break BC. Recommendation: Let it die.</p></li>
+<li><p><strong>Frontend</strong>: You have some CSS or JS files that must go to the web
+directory. Recommendation: Use symlinks or copy them over.</p></li>
+<li><p><strong>I want to</strong>: No you don&#39;t. Now play nice, and autoload.</p></li>
+</ul>
+
+<p>If you must, there are some tricks such as <a href="http://getcomposer.org/doc/articles/custom-installers.md">custom
+installers</a> or
+<a href="http://getcomposer.org/doc/articles/scripts.md">scripts</a>.</p>
+
+<p>But remember, if you use them you are hurting the ecosystem. And I will get
+mad.</p>
+
+<h2>Conclusion</h2>
+
+<p>The vendor directory is a black box. The public API is <code>vendor/autoload.php</code>.</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

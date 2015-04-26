@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Composer Stability Flags</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Feb 7th, 2013
+    </div>
+
+    <div class="body">
+        <h1>Composer Stability Flags</h1>
+
+<p>The most common issue coming up in composer support at the moment is confusion
+about how stability is determined.</p>
+
+<p>Usually it is a variant of this case:</p>
+
+<blockquote>
+<p>When I require package A:dev-master, which depends on B:dev-master, composer
+tells me that package B was not found.</p>
+</blockquote>
+
+<h2>Root package</h2>
+
+<p>The root package is the main <code>composer.json</code> file. It is the one in the same
+directory that you run <code>composer install</code> in. Many of the fields in
+<code>composer.json</code> are <em>root-only</em>, which means that they only have an effect if
+they are specified in the root package.</p>
+
+<p>The root package is a context. Let&#39;s say you are depending on a package <em>A</em>.
+In the directory of your own package, your package is the root package. If you
+<code>cd</code> into the directory of <em>A</em>, then <em>A</em> is the root package.</p>
+
+<p>Stability is determined by the root package, and the root package only. Let
+that sink in for a moment, and don&#39;t ever forget it.</p>
+
+<p>Composer puts the decision of how stable your dependencies are in the hands of
+the user. As a user, you decide if you want to use dev, beta or stable
+releases.</p>
+
+<h2>minimum-stability</h2>
+
+<p>The basis of this decision is the <em>minimum-stability</em> field in the root
+package. It&#39;s a <em>root-only</em> field. It defines a default value for stability
+flags and acts as a lower bound.</p>
+
+<p><center>
+    <img src="/img/composer/minimum-stability.png" alt="minimum-stability">
+</center></p>
+
+<p>It&#39;s a ruler that you can pull down. By default only shows &quot;stable&quot;, but you
+can pull down and reveal the lower stability flags.</p>
+
+<p><em>minimum-stability</em> defines the default stability flag for all constraints.</p>
+
+<h2>Stability resolution</h2>
+
+<p>So let&#39;s think of a scenario where the root package requires package <em>A:dev-
+master</em>, which in turn requires <em>B:dev-master</em>.</p>
+
+<p><center>
+    <img src="/img/composer/scenario-1.png" alt="scenario-1">
+</center></p>
+
+<p>The root package looks like this:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;require&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;A&quot;</span><span class="p">:</span> <span class="s2">&quot;dev-master&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Composer will follow these steps:</p>
+
+<ul>
+<li><p>Determine <code>minimum-stability</code>: In this case the field is not defined, so it
+is set to the default value, which is &quot;stable&quot;.</p></li>
+<li><p>It sees that <em>A</em> has a constraint for version <code>dev-master</code>. Due to the
+<code>dev-</code> prefix, this is known to be a dev version, and dev versions have
+&quot;dev&quot; stability. Because this constraint for a dev version is defined in
+the root package, it implicitly gets the <code>@dev</code> stability flag.</p></li>
+<li><p>Since <em>A</em> has a constraint of <code>A:dev-master@dev</code>, this version matches and
+composer follows the link. It sees that <em>A</em> has a dependency on <em>B</em> with a
+constraint of <code>dev-master</code>. This has a <code>dev-</code> prefix, so it has a stability
+of &quot;dev&quot;.</p></li>
+</ul>
+
+<p>However, since the constraint is defined in package <em>A</em> and not the root
+  package, it does not implicitly get the <code>@dev</code> stability flag. Instead it
+  inherits the <code>minimum-stability</code> which is &quot;stable&quot;. So the resolved
+  constraint is <code>B:dev-master@stable</code>.</p>
+
+<p>At this point it will fail, because <code>B:dev-master@stable</code> does not resolve to
+anything. It will tell you that it cannot find a package <em>B</em> within the
+stability range you provided.</p>
+
+<p>One way to fix the problem would be to just lower your <code>minimum-stability</code>
+down to &quot;dev&quot;. But that&#39;s usually a really bad idea, because it applies to all
+constraints and as a result you will get unstable versions of <em>all</em> packages.</p>
+
+<p>So please, don&#39;t do that.</p>
+
+<h2>Stability flags</h2>
+
+<p>Instead, use stability flags.</p>
+
+<p>A flag is defined as part of a version constraint. Since stability is
+determined by the root package only, flags are also <em>root-only</em>. Flags defined
+in dependent packages are simply ignored.</p>
+
+<p>You can use flags to whitelist specific unstable packages. In this case I want
+to whitelist <em>B</em>. Here is how you do that:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;require&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;A&quot;</span><span class="p">:</span> <span class="s2">&quot;dev-master&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;B&quot;</span><span class="p">:</span> <span class="s2">&quot;@dev&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Note that I did not define an actual version in the root package. This means
+that the root package does not care which version of <em>B</em> is installed, it
+delegates that decision to <em>A</em>, which has a more specific constraint.</p>
+
+<p>The benefit is that if <em>A</em> decides to change its dependency on <em>B</em> from
+<code>dev-master</code> to <code>~1.0</code> or anything else, the root package will not need any
+changes.</p>
+
+<h2>Silex example</h2>
+
+<p>To get a better idea of how this works in practice, let&#39;s look at an example
+involving silex.</p>
+
+<p>At the time of this writing there is no stable version of silex, which means
+in order to install it, you need to add a <code>@dev</code> flag:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;require&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;silex/silex&quot;</span><span class="p">:</span> <span class="s2">&quot;1.0.*@dev&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Silex only has a <code>1.0.x-dev</code> version, which is the dev version of the <code>1.0</code>
+branch.</p>
+
+<p>All of the dependencies of silex have stable releases. Which means by default
+you will get <code>v2.1.7</code> of a number of symfony components and <code>v1.0.1</code> of
+pimple.</p>
+
+<p>If you wanted to try the <code>v2.2.0-RC1</code> version of those symfony components that
+was released a few days ago, you could whitelist them like this:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;require&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;silex/silex&quot;</span><span class="p">:</span> <span class="s2">&quot;1.0.*@dev&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;symfony/event-dispatcher&quot;</span><span class="p">:</span> <span class="s2">&quot;@RC&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;symfony/http-foundation&quot;</span><span class="p">:</span> <span class="s2">&quot;@RC&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;symfony/http-kernel&quot;</span><span class="p">:</span> <span class="s2">&quot;@RC&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;symfony/routing&quot;</span><span class="p">:</span> <span class="s2">&quot;@RC&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Since specifying all of those versions is kind of tedious, you could lower the
+<code>minimum-stability</code>. In this case that is okay, because it is not installing
+unstable packages that you do not want.</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;minimum-stability&quot;</span><span class="p">:</span> <span class="s2">&quot;RC&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;require&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;silex/silex&quot;</span><span class="p">:</span> <span class="s2">&quot;1.0.*@dev&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2>prefer-stable</h2>
+
+<p>Some time after this post was written, composer got a new <code>prefer-stable</code>
+feature.</p>
+
+<p>If you don&#39;t want to figure out the stability of your deps, you can just use
+the <a href="http://getcomposer.org/doc/04-schema.md#prefer-stable"><code>prefer-stable</code></a>
+field in your root package. Composer will try to figure out the most stable
+deps it can.</p>
+
+<p>This is quite convenient and often will get you something good enough. But I
+would still encourage you to think more about which stability you really want,
+and declaring it explicitly. You may be trading convenience for control.</p>
+
+<h2>Conclusion</h2>
+
+<p>Hopefully this gives you a better understanding of how composer determines
+stability and how you can use stability flags to get those unstable versions.</p>
+
+<p>Remember though: Most likely the reason why you need those stability flags is
+because the maintainers of your dependencies did not tag stable releases. You
+should go and annoy them <em>right now</em> so they add branch-aliases and tag
+releases. And as soon as they do, you can nuke those stability flags and be
+happy again.</p>
+
+<p>See also: <a href="/2013/01/07/composer-versioning.html">Composer Version Constraints</a>.</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

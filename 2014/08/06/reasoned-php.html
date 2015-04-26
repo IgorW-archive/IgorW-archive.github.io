@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Reasoned PHP</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Aug 6th, 2014
+    </div>
+
+    <div class="body">
+        <h1>Reasoned <span style="font-size: 0.6em;">PHP</span></h1>
+
+<p>Using <strong>logic</strong> to run your <strong>programs</strong> backwards!</p>
+
+<p>This is a transcript of a talk I gave at the Berlin PHP usergroup in August 2014.</p>
+
+<h2>Logic</h2>
+
+<p>This presentation is going to be about using logic to run your programs
+backwards. Let&#39;s begin with talking about logic.</p>
+
+<p>One of the first logicians was Aristotle, a few years before Christ. He came
+up with syllogisms &mdash; logical statements &mdash; that would look
+something like this:</p>
+
+<blockquote>
+<p>I am a human.</p>
+
+<p>Every human is mortal.</p>
+
+<p>Therefore, I am mortal.</p>
+</blockquote>
+
+<p>And by combining these statements, one could reach logical conclusions. Which
+would allow truths to be derived.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/aristotle.png" alt="aristotle">
+</center></p>
+
+<p>Then christianity happened, and there wasn&#39;t really any progress in science
+and philosophy for... well, a while.</p>
+
+<p>But then, in the 1600s, Leibnitz not only independently invented calculus
+(next to Newton), but also discovered many of the concepts that would play an
+important role in the formalisation of logic.</p>
+
+<p>His calculus ratiocinator is an attempt at creating a universal language to
+describe human thought. He is famous for suggesting that truths should be
+calculated.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/leibnitz.png" alt="leibnitz">
+</center></p>
+
+<p>In the 1800s, a lot of progress was made on the logic front. Boole created
+boolean algebra. De Morgan published De Morgan&#39;s laws. Both of these systems
+would allow translations to be made between logical statements, and they laid
+the groundwork for electronics.</p>
+
+<p>Frege wrote the Begriffsschrift, introducing for the first time a formal logic
+that included a notion of functions and variables. This new method would form
+the basis for most of early 20th century mathematical work.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/boole-frege-demorgan.png" alt="boole, frege, de morgan">
+</center></p>
+
+<p>In 1935, Gentzen created not one, but two new formulations of
+logic<sup><a id="ft-1-src"></a><a href="#ft-1">1</a></sup>:
+Natural deduction and the sequent calculus. It can be described in terms of a
+few simple rules.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/gentzen.png" alt="gentzen">
+</center></p>
+
+<p>At the same time, Church was trying to prove something about logic and
+accidentally invented the simply typed lambda calculus: The first functional
+programming language and it even has a type system!</p>
+
+<p>This turned out to be a formalization of computation and thus remains one of
+the most commonly used ways of describing computers on the most fundamental
+level.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/church.png" alt="church">
+</center></p>
+
+<p>What is amazing however is that when the descriptions of natural deduction and
+the simply typed lambda calculus are compared, they appear to be identical!
+And that&#39;s because they are identical! Logical proofs directly correspond to
+the types in programs!</p>
+
+<p>This is what is known as the curry-howard isomorphism, and it shows us that
+there is a very strong link between logic and computation.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/curry-howard.png" alt="curry-howard">
+</center></p>
+
+<h2>Programs</h2>
+
+<p>So let&#39;s talk about programs. The way I tend to think about programs is as
+black boxes. You put things in on one end, stuff comes out on the other end.
+For the same things you put in, you will always get the same things out. It is
+deterministic in that sense.</p>
+
+<p>In pure functional programming this is true for every function. But even if
+you don&#39;t care about functional programming, this is still true at the macro
+scale. Your program as a whole is deterministic.</p>
+
+<p>So let&#39;s take a function <code>append</code> for example. You give it two lists as
+inputs, it produces a list as an output. The output list is the concatenation
+of the two input lists.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/append.png" alt="append">
+</center></p>
+
+<p>But would it be possible to reverse this process? Could we flip the inputs and
+the outputs, and ask &quot;give me the inputs that when concatenated produce this
+output list&quot;?</p>
+
+<p>The laws of physics do not prevent the rules to be reversed, apart from the
+law of entropy. So let&#39;s fight entropy.</p>
+
+<p>The actual problem here is that there is more than one possible answer to the
+question. There are multiple ways in which two lists could create the provided
+output list.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/appendo.png" alt="appendo">
+</center></p>
+
+<p>And as a matter of fact, we can enumerate all of the possibilities. And from
+looking at them, we can tell that there is some sort of relationship between
+the two inputs. As one of them grows, the other one shrinks.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/appendo-list.png" alt="appendo-list">
+</center></p>
+
+<p>And usually in any slightly more complicated program, we don&#39;t just have a
+list of possibilities. It is a tree. A tree that branches out, that can be
+traversed and searched.</p>
+
+<p>The type of programming that I am describing is <strong>constraint logic
+programming</strong>. More specifically, constraint logic programming over the domain
+of trees.</p>
+
+<p>The execution of the program corresponds to a search over the tree. You are
+searching for an answer that will satisfy the given constraints. And this
+search corresponds to a search for a constructive logical proof.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/appendo-tree.png" alt="appendo-tree">
+</center></p>
+
+<p>In order to construct this tree, the program needs to be written in a
+particular kind of way. The way it is done is by redefining equality, or
+rather, assignment.</p>
+
+<p>In most programming languages, assignment is a uni-directional construct. A
+value is assigned to a variable. It only goes one way.</p>
+
+<p>However, if you extend this notion to a bi-directional relationship in which
+the order of statements does not matter, you gain reversibility.</p>
+
+<p>At this point you no longer have inputs and outputs. You just have pieces of
+information that are related to each other. This is why this form of
+programming is also known as <strong>relational
+programming</strong><sup><a id="ft-2-src"></a><a href="#ft-2">2</a></sup>.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/equality.png" alt="equality">
+</center></p>
+
+<p>Another important piece of the puzzle is the tree search and the matching of
+trees against each other. This happens through an algorithm called
+<strong>unification</strong>.</p>
+
+<p>You can think of unification as a way of taking two trees &mdash; or lists of
+lists &mdash; and matching them against each other. The trees can contain
+&quot;holes&quot; which are unbound variables. When matching the trees against each
+other, they can fill each other&#39;s holes. If there is no contradiction, then
+the trees unify.</p>
+
+<p>Another way to think about it is a bi-directional pattern match.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/unification.png" alt="unification">
+</center></p>
+
+<h2>Reasoned <span style="font-size: 0.6em;">PHP</span></h2>
+
+<p>This brings us to a system that I have been working on. It is called
+<strong><a href="https://github.com/igorw/reasoned-php">Reasoned
+<span style="font-size: 0.7em;">PHP</span></a></strong>.</p>
+
+<p>Reasoned <span style="font-size: 0.7em;">PHP</span> is a logic programming
+system written in PHP. It is a port of <a href="http://minikanren.org">miniKanren</a>
+into PHP. An embedded language for relational programming.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function appendᵒ($l, $s, $out) {</span>
+<span class="x">    return condᵉ([</span>
+<span class="x">        [≡($l, []), ≡($s, $out)],</span>
+<span class="x">        [fresh_all(($a, $d, $res) ==&gt; [</span>
+<span class="x">            consᵒ($a, $d, $l),</span>
+<span class="x">            consᵒ($a, $res, $out),</span>
+<span class="x">            appendᵒ($d, $s, $res),</span>
+<span class="x">        ])],</span>
+<span class="x">    ]);</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>This is what the code looks like. Your first thought might be &quot;omg that&#39;s so
+ugly&quot;, to which I will answer: What did you expect? It&#39;s PHP.</p>
+
+<p>Your second thought might be &quot;omg unicode function names&quot;. Yep. Amazing, isn&#39;t
+it?</p>
+
+<p>If you wanted to actually call this <code>appendᵒ</code> relation, here is how you would
+do it:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">run٭($q ==&gt;</span>
+<span class="x">    appendᵒ([1, 2, 3], [4, 5, 6], $q));</span>
+</code></pre></div>
+<p>So let&#39;s suppose we have a relation called <code>memberᵒ</code> that tells you if a
+variable <code>$x</code> is a member of the list <code>$list</code>:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">memberᵒ($x, $list)</span>
+</code></pre></div>
+<p>We can now ask this relation questions, such as &quot;is <code>2</code> a member of the list
+<code>[1, 2, 3]</code>?&quot;, to which it will respond with <code>_.0</code> which is a strange way of
+saying yes.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">memberᵒ(2, [1, 2, 3])</span>
+<span class="x">// =&gt; _.0</span>
+</code></pre></div>
+<p>That is not very interesting yet. Instead we could ask: is the unbound
+variable <code>$x</code> a member of the list <code>[1, 2, 3]</code>? In this case, it will answer
+&quot;yes, and by the way, these are the possible values it could take!&quot;</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">memberᵒ($x, [1, 2, 3])</span>
+<span class="x">// =&gt; 1, 2, 3</span>
+</code></pre></div>
+<p>Now, you can also combine these statements. Is <code>$x</code> a member of <code>[1, 2, 3]</code>
+and of <code>[3, 4, 5]</code>?</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">memberᵒ($x, [1, 2, 3])</span>
+<span class="x">memberᵒ($x, [3, 4, 5])</span>
+<span class="x">// =&gt; 3</span>
+</code></pre></div>
+<p>And sure enough, it actually figured out that there is only one value that is
+a member of both lists: <code>3</code>. So without explicitly defining an intersection
+operation, the intersection emerges from the tree search.</p>
+
+<h2>Cool stuff</h2>
+
+<p>I want to emphasise that this is a general programming technique and you can
+model almost any computation in this way. And by doing so, you will be able to
+run any program that is written in a relational manner backwards!</p>
+
+<p>Nevertheless, there are certain problems where this approach fits particularly
+well. I would like to show you some of them.</p>
+
+<p>The first one is mathematical formulae. A formula is just a tree of terms and
+most of calculus does not actually involve calculation at all. It is just
+symbolic manipulation of symbols. And that&#39;s precisely what prolog and other
+logic programming systems excel at.</p>
+
+<p>Here is an example of symbolic
+differentiation<sup><a id="ft-3-src"></a><a href="#ft-3">3</a></sup>.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/derivative.png" alt="derivative">
+</center></p>
+
+<p>In electronics you have logic gates that react to electrical signals in
+certain ways. A logic gate can be depicted with a symbol as often used in
+circuit schematics. But it can also be described in terms of a truth table.</p>
+
+<p>The truth table describes the logical relation between the input bits and the
+output bit. It is a function. As such, it can be implemented as a
+bi-directional relation.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/bit-gates.png" alt="bit-gates">
+</center></p>
+
+<p>It is possible to combine these two gates to form a so-called half-adder. The half-adder also has a truth table. And thus also can be a relation.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/bit-half-adder.png" alt="bit-half-adder">
+</center></p>
+
+<p>By combining two half-adders, you can create a full-adder. It allows you to
+add two binary digits. Chaining n full adders allows you to add two n-bit
+binary numbers. n corresponds to the amount of binary digits. And that&#39;s
+really what the ALU inside of your computer does.</p>
+
+<p>This circuit is reversible.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/bit-full-adder.png" alt="bit-full-adder">
+</center></p>
+
+<p>Normally if you think of arithmetic, it is a function. Two numbers go into the
+addition operator, the sum comes out on the other end.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/plus-forward.png" alt="plus-forward">
+</center></p>
+
+<p>If you implement arithmetic as a relation, you can ask questions such as &quot;give
+me all the numbers that add up to 5&quot;. The system will enumerate
+them<sup><a id="ft-4-src"></a><a href="#ft-4">4</a></sup>!</p>
+
+<p><center>
+    <img src="/img/reasoned-php/plus-backward.png" alt="plus-backward">
+</center></p>
+
+<p>Moving up from hardware to software, we have compilers. A compiler is a
+program that reads the source code of another program and compiles it down to
+machine code.</p>
+
+<p>If you implement a compiler in a relational way, you get not only a compiler,
+but also a decompiler. That means that if you&#39;re lucky, you will be able to
+take an arbitrary chunk of machine code and translate it back into some sort
+of source code!</p>
+
+<p><center>
+    <img src="/img/reasoned-php/compiler.png" alt="compiler">
+</center></p>
+
+<p>This becomes even more fun when you write a relational interpreter. An
+interpreter is a program that reads the source code of another program and
+executes it. Then sometimes produces an output.</p>
+
+<p>With a relational interpreter you can not just feed it some input and see the
+output. You can ask it questions such as &quot;give me all of the programs that
+evaluate to 42&quot;. The system will enumerate them!</p>
+
+<p>This is extremely powerful. It is almost like doing TDD, but without writing
+the code. The tests constrain what the program must do. The proof search will
+try to find a program that satisfies those constraints. It has actually been
+possible to synthesise small programs using this technique.</p>
+
+<p><center>
+    <img src="/img/reasoned-php/interpreter.png" alt="interpreter">
+</center></p>
+
+<p>One very cool aspect of unbound variables is that you can use them multiple
+times. This allows you to formulate a question such as &quot;give me a program that
+when executed outputs its own source code&quot;. This is what is known as a quine,
+and a relational interpreter will happily generate quines for
+you<sup><a id="ft-5-src"></a><a href="#ft-5">5</a></sup>!</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">eval_expᵒ($q, [], $q)</span>
+
+<span class="x">// =&gt; ((lambda (_.0) (list _.0 (list &#39;quote _.0)))</span>
+<span class="x">//     &#39;(lambda (_.0) (list _.0 (list &#39;quote _.0)))</span>
+</code></pre></div>
+<p>But you can do something even better than that. You can ask the interpreter to
+produce a program <code>$x</code> that evaluates to the source code of a program <code>$y</code>.
+And the program <code>$y</code> should then evaluate to the source code of <code>$x</code> again.
+This is what is known as a twine, and a relational interpreter will happily
+generate twines for you!</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">eval_expᵒ($x, [], $y)</span>
+<span class="x">eval_expᵒ($y, [], $x)</span>
+
+<span class="x">// =&gt; ((lambda (_.0)</span>
+<span class="x">//      (list &#39;quote (list _.0 (list &#39;quote _.0))))</span>
+<span class="x">//     &#39;(lambda (_.0) (list &#39;quote (list _.0 (list &#39;quote _.0)))))</span>
+<span class="x">//</span>
+<span class="x">//     ((lambda (_.0) (list &#39;quote (list _.0 (list &#39;quote _.0))))</span>
+<span class="x">//     &#39;(lambda (_.0) (list &#39;quote (list _.0 (list &#39;quote _.0)))))</span>
+</code></pre></div>
+<h2><em>µ</em>Kanren</h2>
+
+<p>How much code does it take to implement the basic mechanisms of a logic
+programming system? One of the smallest ones, that Reasoned
+<span style="font-size: 0.7em;">PHP</span> is in fact based upon, is
+called <em>µ</em>Kanren.</p>
+
+<p>It consists of <a href="https://github.com/jasonhemann/microKanren/blob/master/microKanren.scm">~50 lines of code</a>.</p>
+
+<p><strong>It&#39;s amazing how little code is needed to build a logic programming system.</strong></p>
+
+<p><center>
+    <a href="https://github.com/igorw/reasoned-php" class="btn btn-large btn-inverse" style="font-size: 1.3em;">
+        Go check out Reasoned <span style="font-size: 0.7em;">PHP</span>
+    </a>
+</center></p>
+
+<hr>
+
+<ol>
+<li><p><a id="ft-1"></a>From Propositions as Types by Philip Wadler <a id="ft-1" href="#ft-1-src">↩</a></p></li>
+<li><p><a id="ft-2"></a>A term popularised by William Byrd and miniKanren <a id="ft-2" href="#ft-2-src">↩</a></p></li>
+<li><p><a id="ft-3"></a>From Clause and Effect by William Clocksin <a id="ft-3" href="#ft-3-src">↩</a></p></li>
+<li><p><a id="ft-4"></a>This number system is described in The Reasoned Schemer and is lovingly referred to as &quot;Oleg Numbers&quot; <a id="ft-4" href="#ft-4-src">↩</a></p></li>
+<li><p><a id="ft-5"></a>From Quine Generation via Relational Interpreters by Byrd et al.<a id="ft-5" href="#ft-5-src">↩</a></p></li>
+</ol>
+
+<h2>References</h2>
+
+<ul>
+<li><p><a href="http://homepages.inf.ed.ac.uk/wadler/topics/history.html#propositions-as-types">Propositions as Types</a>
+<br /><em>Philip Wadler</em></p></li>
+<li><p><a href="http://webyrd.net/scheme-2013/papers/HemannMuKanren2013.pdf"><em>µ</em>Kanren</a>
+<br /><em>Jason Hemann, Daniel Friedman</em></p></li>
+<li><p><a href="http://users-cs.au.dk/danvy/sfp12/papers/byrd-holk-friedman-paper-sfp12.pdf">Quine Generation via Relational Interpreters</a>
+<br /><em>William Byrd, Eric Holk, Daniel Friedman</em></p></li>
+<li><p><a href="http://mitpress.mit.edu/books/reasoned-schemer">The Reasoned Schemer</a>
+<br /><em>Daniel Friedman, William Byrd, Oleg Kiselyov</em></p></li>
+<li><p><a href="http://www.amazon.com/Clause-Effect-Programming-Working-Programmer/dp/3540629718">Clause and Effect</a>
+<br /><em>William Clocksin</em></p></li>
+<li><p><a href="http://www.theannotatedturing.com/">The Annotated Turing</a>
+<br /><em>Charles Petzold</em></p></li>
+<li><p><a href="http://www.charlespetzold.com/code/">Code</a>
+<br /><em>Charles Petzold</em></p></li>
+<li><p><a href="http://www.logicomix.com/">Logicomix</a>
+<br /><em>Apostolos Doxiadis, Christos Papadimitriou</em></p></li>
+</ul>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

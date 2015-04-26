@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Compiling Brainfuck</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Oct 27th, 2014
+    </div>
+
+    <div class="body">
+        <h1>Compiling Brainfuck</h1>
+
+<p>After messing around with some assembly language for two days, I wrote a <a href="https://github.com/igorw/naegleria">brainfuck compiler</a>. Not that it hasn&#39;t been done before, but it was a fun exercise. I mean come on. <strong>It&#39;s a compiler!</strong></p>
+
+<p>I&#39;d like to share how it was created.</p>
+
+<blockquote>
+<p>Why would you put a joke language that people use to troll other developers, and Brainfuck together into the same project?</p>
+
+<p><em>&mdash; danpalmer, <a href="https://news.ycombinator.com/item?id=8491986">slacker news</a></em></p>
+</blockquote>
+
+<h2>Brainf*ck</h2>
+
+<p>The <a href="http://esolangs.org/wiki/Brainfuck">brainfuck</a> language is one of the most popular esoteric programming languages. Not only because of its needlessly profane name, but also because of it&#39;s simplicity.</p>
+
+<p>To quote the esolang wiki:</p>
+
+<blockquote>
+<p>Brainfuck operates on an array of memory cells, also referred to as the tape, each initially set to zero. There is a pointer, initially pointing to the first memory cell. The commands are:</p>
+
+<ul>
+<li><code>&gt;</code> &nbsp; Move the pointer to the right</li>
+<li><code>&lt;</code> &nbsp; Move the pointer to the left</li>
+<li><code>+</code> &nbsp; Increment the memory cell under the pointer</li>
+<li><code>-</code> &nbsp; Decrement the memory cell under the pointer</li>
+<li><code>.</code> &nbsp; Output the character signified by the cell at the pointer</li>
+<li><code>,</code> &nbsp; Input a character and store it in the cell at the pointer</li>
+<li><code>[</code> &nbsp; Jump past the matching ] if the cell under the pointer is 0</li>
+<li><code>]</code> &nbsp; Jump back to the matching [ if the cell under the pointer is nonzero</li>
+</ul>
+</blockquote>
+
+<p>Okay.</p>
+
+<h2>Scary C code</h2>
+
+<p>Now, it turns out that you can map these operations pretty much directly to C code. If <code>tape</code> is an array and <code>i</code> is a pointer into that array, then <code>&gt;</code> and <code>&lt;</code> increment or decrement the pointer, effectively shifting it one cell to the right or the left. Also, <code>+</code> and <code>-</code> are increments and decrements on the value pointed at.</p>
+
+<p>Here is a pretty simple bf program:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">+++&gt;++&gt;+
+</code></pre></div>
+<p>Running it does not produce any output, it will however leave the memory cells of the tape in this state:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">[3 2 1 ...]
+</code></pre></div>
+<p>Here is one way of writing the equivalent program in C:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">char tape[4000];
+char *i;
+
+int main() {
+    i = tape;
+    (*i)++;
+    (*i)++;
+    (*i)++;
+    i++;
+    (*i)++;
+    (*i)++;
+    i++;
+    (*i)++;
+}
+</code></pre></div>
+<p>If you put it in a file named dreizweieins.c, you can compile it by running:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">make dreizweieins
+</code></pre></div>
+<p>Which is a shorthand for invoking the compiler:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">gcc -o dreizweieins dreizweieins.c
+</code></pre></div>
+<p>In either case, it will produce a binary that you can run:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">./dreizweieins
+</code></pre></div>
+<h2>Assembly</h2>
+
+<p>When you compile a C program, there is an entire compiler toolchain doing things. The compiler toolchain will depend on your actual hardware and your operating system.</p>
+
+<p>There are different compilers, such as <strong>gcc</strong> or <strong>clang</strong>. gcc aka the GNU Compiler Collection, is probably the most widely used.</p>
+
+<p>One step in the compilation process is translating the high-level language (e.g. C, yeah they call that &quot;high-level&quot;, whatever) into <strong>assembly language</strong>. Note that this is not yet executable machine code. It is the human readable equivalent of machine code though, that is then assembled. Also, linkers do some magic and stuff.</p>
+
+<p>You can get gcc to dump the assembly by providing the <code>-S</code> option. So let&#39;s try this with a program that simulates the bf <code>+</code> instruction.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">char tape[4000];
+char *i = tape;
+
+int main() {
+    (*i)++;
+}
+</code></pre></div>
+<p>Let&#39;s do this:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">gcc -S inc.c
+</code></pre></div>
+<p>This will produce a file called <code>inc.s</code> (the <code>.s</code> stands for <em>source</em> or something).</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">    .comm   tape,4000,32
+    .globl  i
+    .data
+    .align 8
+    .type   i, @object
+    .size   i, 8
+i:
+    .quad   tape
+    .text
+    .globl  main
+    .type   main, @function
+main:
+.LFB0:
+    .cfi_startproc
+    pushq   %rbp
+    .cfi_def_cfa_offset 16
+    .cfi_offset 6, -16
+    movq    %rsp, %rbp
+    .cfi_def_cfa_register 6
+    movq    i(%rip), %rax
+    movzbl  (%rax), %edx
+    addl    $1, %edx
+    movb    %dl, (%rax)
+    popq    %rbp
+    .cfi_def_cfa 7, 8
+    ret
+    .cfi_endproc
+</code></pre></div>
+<p>Well, this looks straight forward enough. It&#39;s pretty easy to see that these three instructions are responsible for the pointer lookup and value increment:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">movq    i(%rip), %rax
+movzbl  (%rax), %edx
+addl    $1, %edx
+movb    %dl, (%rax)
+</code></pre></div>
+<p>We can do the same thing for the <code>&gt;</code> instruction:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">char tape[4000];
+char *i = tape;
+
+int main() {
+    i++;
+}
+</code></pre></div>
+<p>Becomes:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">movq    i(%rip), %rax
+addq    $1, %rax
+movq    %rax, i(%rip)
+</code></pre></div>
+<p>What do these instructions do? <em>Who cares!</em> They do the thing in the CPU and make the brainfuck thing in the computer, after all.</p>
+
+<h2>I/O</h2>
+
+<p>The input/output instructions need some special handling. For one, unix/posix shells by default buffer input by line. Brainfuck requires reading input by character.</p>
+
+<p>You can change this behaviour by running <code>stty -icanon</code>. For the record, I copy-pasted that from StackOverflow.</p>
+
+<p>You can put that in a C program using the <code>system</code> function in C, and look at the assembly output from gcc.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">.stty:
+    .string &quot;stty -icanon&quot;
+    .text
+
+...
+
+movl    $.stty, %edi
+call    system
+</code></pre></div>
+<p>Then do actual I/O with the <code>getchar</code> and <code>putchar</code> functions. You can look up the C level API docs by running <code>man 3 putchar</code>.</p>
+
+<p>Here are the <code>putchar</code> assembly instructions:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">movq    i(%rip), %rax
+movzbl  (%rax), %eax
+movsbl  %al, %eax
+movl    %eax, %edi
+call    putchar
+</code></pre></div>
+<p>So far, you can take each one of these bf instructions and just replace it with the corresponding lines of assembly. Literally copy pasting from the gcc output. That&#39;s what I did.</p>
+
+<h2>Loops</h2>
+
+<p>The more complicated part is loops. The bf loops can nest. Assembly language doesn&#39;t have loops -- it just has jumps. Also known as <strong>goto</strong>.</p>
+
+<p>Relax, you declare labels and you get to jump to those labels.</p>
+
+<p>Here&#39;s an infinite loop, for fun:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">.globl main
+main:
+    jmp main
+</code></pre></div>
+<p>bf loops are basically the same as <code>while</code> loops in C. But in order to get the nesting behaviour right, you sort of need to keep track of which level you are at. Since at the end of the loop you need to jump back to the beginning.</p>
+
+<p>This can be accomplished by having a simple loop counter that names the loops, and a stack that stores the current level of nesting.</p>
+
+<p>Look at the code.</p>
+
+<h2>Putting it all together</h2>
+
+<p>So when you put all the pieces in place, you get a working compiler!</p>
+
+<ul>
+<li>Put the boilerplate into some template that wraps around the generated instructions.</li>
+<li>Loop over the bf code and replace each instruction with the corresponding output from <code>gcc -S</code>.</li>
+<li>That&#39;s literally it, that&#39;s how a compiler is made.</li>
+</ul>
+
+<p>&lt;3 copy pasting</p>
+
+<p><center>
+    <a href="https://github.com/igorw/naegleria" class="btn btn-large btn-inverse" style="font-size: 1.3em;">
+        Naegleria
+    </a>
+</center></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

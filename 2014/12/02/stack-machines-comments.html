@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: Comments</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 2nd, 2014
+    </div>
+
+    <div class="body">
+        <h1>Stack Machines: Comments</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html"><strong>comments</strong></a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<p>Most extensions to la deus stack machina so far have been to the execution engine. But there are also some improvements that can be made to the parser.</p>
+
+<h2>&quot;Parser&quot;</h2>
+
+<p>By parser, I of course mean this line of code:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$ops = explode(&#39; &#39;, &#39;1 2 +&#39;);</span>
+</code></pre></div>
+<p>The problem with this &quot;parser&quot; is that it requires exactly one space between tokens.</p>
+
+<ul>
+<li>It does not support newlines</li>
+<li>It does not support arbitrary whitespace</li>
+<li>It does not support comments</li>
+</ul>
+
+<p>These are <em>serious</em> violations, and they will not be tolerated! We <em>must</em> fix this immediately! <strong>To the code mobile</strong>!</p>
+
+<p>And yes, technically this is a lexer... but who cares?</p>
+
+<h2>Whitespace</h2>
+
+<p>Everybody knows that indentation is the most important aspect of computer programming. So how about some regex magic to split those little instructions into operations.</p>
+
+<p>The first iteration might look something like this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$ops = preg_split(&#39;/\s/&#39;, $code);</span>
+</code></pre></div>
+<p>This is quite nice, but it will produce awful empty string <code>&#39;&#39;</code> operations. We <strong>do not want</strong> them. Lucky for us, <code>preg_split</code> supports a flag called <code>PREG_SPLIT_NO_EMPTY</code> that will filter out empty chunks. How convenient! Thanks, <code>preg_split</code>!</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$ops = preg_split(&#39;/\s/&#39;, $code, -1, PREG_SPLIT_NO_EMPTY);</span>
+</code></pre></div>
+<p>Much better! We can now properly indent the code.</p>
+
+<h2>Comments</h2>
+
+<p>The first thing you want to see when reading someone else&#39;s code is their running commentary of what is about to happen. That is why you are reading this post, after all.</p>
+
+<p>In order to annotate your code with redundant type information, translations of abbreviated names, implicit state information and general reasons <em>why</em> the code is doing a certain thing, because encoding that into the program itself has proven difficult at times, we will want to add support for comments to the parser.</p>
+
+<p>By which we mean, the parser should <strong>eliminate all comments</strong>, because the machine does not want to hear them.</p>
+
+<p>Instead of arguing about whether comments should use <code>;</code>, <code>--</code>, <code>//</code>, <code>/* */</code> or <code>*&gt;</code>, we&#39;re just going to go with <code>#</code>.</p>
+
+<p>Now, to get rid of those, we can throw some more regex at the problem. This should do the job:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$ops = preg_split(&#39;/\s/&#39;, preg_replace(&#39;/^\s*#.*$/m&#39;, &#39;&#39;, $code), -1, PREG_SPLIT_NO_EMPTY);</span>
+</code></pre></div>
+<p><em>So good.</em></p>
+
+<h2>Summary</h2>
+
+<p><span style="background-color: yellow;">
+    When in doubt, throw more regular expressions at the problem.
+</span></p>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html"><strong>comments</strong></a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

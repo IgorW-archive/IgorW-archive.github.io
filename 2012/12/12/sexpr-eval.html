@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>S-expressions: Evaluation</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 12th, 2012
+    </div>
+
+    <div class="body">
+        <h1>S-expressions: Evaluation</h1>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html"><strong>eval</strong></a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+<p>So far this series has mostly been about s-expressions as a data format. I
+would like to start exploring a more advanced space now: Treating
+s-expressions as code and evaluating them.</p>
+
+<p>In many Lisp implementations this is done by two functions: <em>eval</em> and
+<em>apply</em>. Eval takes an expression and an environment and will evaluate that
+expression in the context of the env. Apply applies a function, which means
+evaluating the body of the function against a set of arguments. The arguments
+are evaluated before the function is applied.</p>
+
+<h2>Addition</h2>
+
+<p>Ever since <a href="https://github.com/Herzult/SimplePHPEasyPlus">SimplePHPEasyPlus</a>
+we know that adding two numbers together is hard.</p>
+
+<p>So let&#39;s start with evaluating a very basic case of an s-expression. The
+addition of two numbers:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">+</span> <span class="mi">1</span> <span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+<p>In the AST, that expression is represented as:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">[[&#39;+&#39;, 1, 2]]</span>
+</code></pre></div>
+<p>The resulting computation of when translating this function call to PHP would
+be:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">1 + 2</span>
+</code></pre></div>
+<p>It turns out that in Lisp you can pass more than two arguments to <code>+</code>, and it
+will return the sum of all of them. With that in mind, perhaps this is a more
+accurate PHP equivalent:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">array_sum([1, 2])</span>
+</code></pre></div>
+<p>Which in fact maps better to the way Lisp works because <code>+</code> is no longer a
+special construct. It is just a function.</p>
+
+<h2>Basic eval</h2>
+
+<p>The starting point for implementing this is the AST. It is an array of sexprs
+that should be evaluated. Each evaluated sexpr returns a value and the value
+of the last evaluation should be returned.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function evaluateAst(array $ast, array $env)</span>
+<span class="x">{</span>
+<span class="x">    $value = null;</span>
+<span class="x">    foreach ($ast as $sexpr) {</span>
+<span class="x">        $value = evaluate($sexpr, $env);</span>
+<span class="x">    }</span>
+<span class="x">    return $value;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>The environment represents the context of this evaluation and will become
+useful later on.</p>
+
+<p><code>evaluate</code> takes a sexpr and returns the result of that evaluation. Right now
+we want to evaluate <code>(+ 1 2)</code>, which is the application of the function <code>+</code> to
+the arguments <code>1</code> and <code>2</code>.</p>
+
+<p>This function application is represented as a list whose first element is a
+<em>symbol</em> referencing the function by name, all other elements are arguments to
+that function.</p>
+
+<p>In Lisp the first element of a list is called the <code>car</code>, the rest of the list
+is called the <code>cdr</code> (pronounced &quot;cudder&quot;). These crazy names exist for
+historical reasons but are in wide use.</p>
+
+<p>Here are their implementations:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function car(array $list)</span>
+<span class="x">{</span>
+<span class="x">    return $list[0];</span>
+<span class="x">}</span>
+
+<span class="x">function cdr(array $list)</span>
+<span class="x">{</span>
+<span class="x">    return array_slice($list, 1);</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>For the sexpr <code>(+ 1 2)</code>, the <code>car</code> is <code>+</code> and the <code>cdr</code> is <code>(1 2)</code>. Which
+happen to be the function name and the arguments.</p>
+
+<p>Now, instead of hard-coding the possible functions like <code>+</code> into <code>evaluate</code>,
+it would be better to store them in the environment. After a simple lookup,
+the function can be applied to the given arguments.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function evaluate($sexpr, array $env)</span>
+<span class="x">{</span>
+<span class="x">    $fn = car($sexpr);</span>
+<span class="x">    $args = cdr($sexpr);</span>
+
+<span class="x">    return call_user_func_array($env[$fn], $args);</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>The last piece of the puzzle is producing an environment that actually
+contains the <code>+</code> function.</p>
+
+<p>As mentioned previously, PHP&#39;s <code>array_sum</code> is a good match for the addition
+functionality. However, because <code>array_sum</code> takes an array of arguments, it
+needs to be wrapped in a new <code>plus</code> function that uses <code>func_get_args</code> to get
+all passed arguments as opposed to one array argument.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">array_sum([1, 2])</span>
+<span class="x">plus(1, 2)</span>
+</code></pre></div>
+<p>The plus function:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias;</span>
+
+<span class="x">function plus(/* $numbers... */)</span>
+<span class="x">{</span>
+<span class="x">    return array_sum(func_get_args());</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Finally, why not provide some sort of default environment which contains the
+core functions. It&#39;s simply an array which maps from function name symbols to
+actual PHP functions:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function environment()</span>
+<span class="x">{</span>
+<span class="x">    return [</span>
+<span class="x">        &#39;+&#39; =&gt; &#39;Igorw\Ilias\plus&#39;,</span>
+<span class="x">    ];</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>This should be enough to evaluate <code>(+ 1 2)</code>:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$ast = [[&#39;+&#39;, 1, 2]];</span>
+<span class="x">$env = environment();</span>
+<span class="x">var_dump(evaluateAst($ast, $env));</span>
+</code></pre></div>
+<p>And sure enough, this returns <code>3</code>. Just to be extra sure, how about
+<code>(+ 1 2 3)</code>? It returns <code>6</code>, as expected.</p>
+
+<p>Sweet!</p>
+
+<h2>Limitations</h2>
+
+<p>This implementation is already quite flexible. It allows new functions to be
+added dynamically, it allows the Lisp code to call any PHP function that is
+mapped in the environment. But overall it is very basic, and many things are
+not yet working.</p>
+
+<ul>
+<li>Only function application is supported.</li>
+<li>The expression cannot be a literal <code>42</code>.</li>
+<li>The expression cannot be a quoted value <code>&#39;foo</code>.</li>
+<li>The expression cannot be a quoted list <code>&#39;(foo bar)</code>.</li>
+<li>The <code>car</code> cannot be an application <code>((get-plus) 1 2)</code>.</li>
+<li>The <code>cdr</code> cannot contain nested applications <code>(+ 1 (+ 2 3))</code>.</li>
+</ul>
+
+<p>To address these issues, the following changes need to be made to <code>evaluate</code>:</p>
+
+<ul>
+<li>It needs to support other forms than simple function applications.</li>
+<li>It needs to evaluate the <code>car</code> of lists before the environment lookup.</li>
+<li>It needs to evaluate each element from the <code>cdr</code> of lists before application.</li>
+</ul>
+
+<p>In the next post I will improve the overall design of how evaluation works,
+fix the mentioned shortcomings and introduce some new concepts.</p>
+
+<h2>Conclusion</h2>
+
+<ul>
+<li>Adding two numbers is hard.</li>
+<li>Evaluating a Lisp function application is easy.</li>
+<li><code>car</code> and <code>cdr</code> are bad names, even worse than <em>sexpr</em>.</li>
+</ul>
+
+<h2>Further reading</h2>
+
+<ul>
+<li><a href="https://github.com/igorw/ilias/blob/master/examples/basic-eval.php">Source code: Ilias <code>examples/basic-eval.php</code></a></li>
+</ul>
+
+<hr>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html"><strong>eval</strong></a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

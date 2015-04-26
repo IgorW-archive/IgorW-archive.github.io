@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Autoload path depth insanity</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Jan 23rd, 2013
+    </div>
+
+    <div class="body">
+        <h1>Autoload path depth insanity</h1>
+
+<p>In the recent 2-3 years there have been a few major developments in the PHP
+community. I&#39;d say the most notable ones were the creation of the PSR-0
+autoloading standard and the dawn of the composer dependency manager.</p>
+
+<p>The PSR proposals were originally based on the common ground between the
+projects pushing them. Today they dominate the way modern PHP libraries are
+written. I think it&#39;s time to stop and think for a minute about how we really
+want our code and libraries to look like.</p>
+
+<h2>Update (2014-01-04)</h2>
+
+<p>The situation has improved. We now have a
+<a href="https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-4-autoloader.md">PSR-4 specification</a>
+and support for this new standard
+<a href="http://seld.be/notes/psr-4-autoloading-support-in-composer">in composer</a>.</p>
+
+<p>Thanks to everyone who made this happen.</p>
+
+<h2>Autoloading</h2>
+
+<p>While I believe that the creation of
+<a href="https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-0.md">PSR-0</a>
+was extremely important for PHP, I no longer care about autoloading. The reason
+is simple: Composer made it irrelevant.</p>
+
+<p>With composer you get autoloading for free, but even better: you now have a
+standard tool that can generate a classmap instantly. Classmap is one of the
+most performant ways to lazy-load classes and it does not even care which
+files they are in.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">src
+└── Symfony
+    └── Component
+        └── HttpKernel
+            └── HttpKernelInterface.php
+
+library
+└── Zend
+    └── Mvc
+        └── Application.php
+</code></pre></div>
+<p>If you take a look at these two examples, they have something in common. Both
+of them contain a useless level of directory nesting. Both Symfony&#39;s <code>src</code> and
+Zend Framework&#39;s <code>library</code> directory contain only one single directory -- as
+such it could be eliminated.</p>
+
+<p>Of course PSR-0 would allow removing the <code>src</code> directory and having <code>Symfony</code>
+in the root directly (and some projects do that) but that&#39;s not ideal, as you
+lose the ability of having a consistent directory for the source code.</p>
+
+<h2>Who will win the pointless nesting competition?</h2>
+
+<p>Here is an example from a library I wrote, called Ilias:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">ilias
+├── src
+│   └── Igorw
+│       └── Ilias
+│           └── Program.php
+└── tests
+    └── Igorw
+        └── Tests
+            └── Ilias
+                └── ProgramTest.php
+</code></pre></div>
+<p>Unlike the previously mentioned projects, this library is not part of a big
+organization. As you can see, there are not one, but <em>two</em> levels of
+unnecessary directory nesting. The name of my project is <code>igorw/ilias</code>, why
+would I care to repeat this information <em>yet again</em> in the directory
+structure?</p>
+
+<p>And it gets even worse when look at the unit tests. The amount of nesting is
+reaching a level of ridiculousness that exceeds the amount of ignorance a
+human being can generate. I hate to say it, but this is annoying.</p>
+
+<blockquote>
+<p>Side note: Fortunately PHPUnit does not care about autoloading, so I can
+shorten the test filename to <code>tests/unit/ProgramTest.php</code>, which also allows
+for a clean separation between unit, integration and functional tests.
+<a href="https://twitter.com/__edorian">Thank you, Volker</a>.</p>
+</blockquote>
+
+<p>But instead of just complaining, I have a few suggestions that would greatly
+improve the way we deal with autoloading today, by introducing a sane amount
+of brevity.</p>
+
+<p>It would allow the path to be shortened to <code>src/Program.php</code>.</p>
+
+<h2>Proposal</h2>
+
+<p>Based on <a href="https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-0.md">PSR-0</a>,
+these are the changes I would make:</p>
+
+<ul>
+<li><p>An autoloader must take a <code>class_prefix</code> option which defaults to <code>null</code>.</p></li>
+<li><p>If the <code>class_prefix</code> is not <code>null</code> and the <abbr title="Fully-qualified
+class name">FQCN</abbr> begins with the <code>class_prefix</code>, the <em>transformed
+class prefix</em> must be stripped from the beginning filesystem path.</p></li>
+<li><p>The <em>transformed class prefix</em> is calculated by applying the following
+transformations to it:</p>
+
+<ul>
+<li>If the last character is not a namespace separator, append one.</li>
+<li>Convert each namespace separator to a <code>DIRECTORY_SEPARATOR</code>.</li>
+</ul></li>
+</ul>
+
+<p>Here are some examples:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">class_prefix: Symfony
+class name:   Symfony\Component\HttpKernel\HttpKernelInterface
+filename:             Component/HttpKernel/HttpKernelInterface.php
+
+class_prefix: Zend
+class name:   Zend\Mvc\Application
+filename:          Mvc/Application.php
+
+class_prefix: Igorw\Ilias
+class name:   Igorw\Ilias\Program
+filename:                 Program.php
+</code></pre></div>
+<p>The composer configuration could be something along these lines, the class
+prefix can be used both matching and for constructing the directory prefix:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;autoload&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;psr-n&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&quot;Igorw\\Ilias&quot;</span><span class="p">:</span> <span class="s2">&quot;src&quot;</span> <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Based on the feedback I receive I may write up a more detailed spec and a
+proof-of-concept implementation for submission to the PHP
+<a href="http://www.php-fig.org/">FIG</a>.</p>
+
+<p><center style="margin-top: 25px;">
+    <big>
+        <a  href="https://gist.github.com/4600419"
+            style="background: white; border: 2px #d14 solid; border-radius: 5px; padding: 10px; color: #d14;">
+            Please leave a comment!
+        </a>
+    </big>
+</center></p>
+
+<h2>FAQ</h2>
+
+<ul>
+<li><strong>Why not just use classmap?</strong></li>
+</ul>
+
+<p>The main annoyance with classmap autoloading is that you must manually re-
+  dump it every time a new class is added, which makes it unsuited for a
+  development environment.</p>
+
+<p>Sure, you could hack together an autoloader that re-generates the class map
+  if a class is not found, but I would strongly favour a clean solution over
+  such hacks.</p>
+
+<ul>
+<li><strong>Doesn&#39;t composer&#39;s <code>target-dir</code> fix this?</strong></li>
+</ul>
+
+<p>Unfortunately, no. The <code>target-dir</code> is prepended to the entire package name,
+  which means you will need to put code in your top level directory.</p>
+
+<p>What I am asking for is <code>src/{$prefix}/Name.php</code>, which is not possible with
+  <code>target-dir</code>.</p>
+
+<ul>
+<li><strong>But Symfony2 bundles do not have nesting and work fine.</strong></li>
+</ul>
+
+<p>See the composer <code>target-dir</code> question above.</p>
+
+<ul>
+<li><strong>Just use an IDE, it will solve all your problems!</strong></li>
+</ul>
+
+<p>An IDE cannot fix the filesystem structure of a software project.</p>
+
+<ul>
+<li><strong>What if the FIG does not like it?</strong></li>
+</ul>
+
+<p>Depending on the feedback I receive, I may consider submitting a patch for
+  composer anyway.</p>
+
+<ul>
+<li><strong>&lt;insert random insult here&gt;</strong></li>
+</ul>
+
+<p>Thanks man, I appreciate it.</p>
+
+<h2>Obligatory XKCD</h2>
+
+<p><center>
+    <img src="https://imgs.xkcd.com/comics/standards.png" alt="XKCD: Standards">
+</center></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

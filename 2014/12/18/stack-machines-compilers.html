@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: Compilers</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 18th, 2014
+    </div>
+
+    <div class="body">
+        <h1>Stack Machines: Compilers</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html"><strong>compilers</strong></a></p>
+
+<blockquote style="background: yellow; padding: 10px 20px;">
+    This is a guest post by the one and only <strong>Anthony Ferrara</strong> (<a href="https://twitter.com/ircmaxell">@ircmaxell</a>), who has a <a href="http://blog.ircmaxell.com/">blog of his own</a> and has written a <a href="https://github.com/google/recki-ct">compiler for PHP</a>!
+</blockquote>
+
+<p>Up until this point, we have been creating languages that require us to do all of the hard wiring ourselves. Our object code deals directly with memory addresses, which while easy to execute makes writing a challenge.</p>
+
+<p>So let&#39;s generate our object code. Let&#39;s create a front-end language which will be easy to write in, but will <em>compile</em> to the back-end object code we&#39;ve been working with.</p>
+
+<h2>Compilers</h2>
+
+<p>An actual compiler consists of a few moving parts:</p>
+
+<ul>
+<li><p><strong>Parser</strong> - Converts code from one language into an intermediary representation. Often this intermediary is an Abstract Syntax Tree (AST).</p>
+
+<p>It&#39;s important to note that the parsed code has the same overall meaning, it&#39;s just changing the representation of the code from a textual form to a more structured form.</p></li>
+<li><p><strong>Compiler</strong> - Converts code from one representation to another.</p>
+
+<p>The key thing here is that the semantics of the representations change. So the compiler actually converts one language into a different one, where the <em>behavior</em> of each language is different.</p>
+
+<p>This is a slightly difficult concept to grasp, so let&#39;s take an example:</p>
+
+<p>In PHP, <code>PHP_INT_MAX + 1</code> is a <code>float</code> type. In C, it&#39;s an <code>int</code> (it wraps around, overflows). </p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">var_dump(PHP_INT_MAX + 1); // float(9.2233720368548E+18)
+</code></pre></div>
+<p>But in C:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">PHP_INT_MAX + 1; // int(-9223372036854775808)
+</code></pre></div>
+<p>So a hypothetical PHP to C compiler would generate the code to handle this distinction to allow for the generated code to behave the same as the original source code.</p></li>
+<li><p><strong>Code Generator</strong> - Outputs target code. This is basically converting from an internal representation to a final target representation.</p></li>
+</ul>
+
+<p>Note that these definitions are vague. In reality, a parser is just a special type of compiler (where the semantics don&#39;t change). And a code generator is a special type of compiler (the logical reverse of a parser, again where semantics don&#39;t change).</p>
+
+<p>So the generic term &quot;Compiler&quot; is really a chain of at least 2 individual compilers (a parser and a code generator). If the semantics of the source and target language are the same, that&#39;s all you need. If they are different, then you need additional compilers in the middle.</p>
+
+<p>A real compiler like gcc may have multiple steps, with multiple compilers. So a single compile of a program may involve many individual internal compilers and code generators.</p>
+
+<h2>The Parser</h2>
+
+<p>We&#39;re going to re-use PHP&#39;s internal parser, along with <a href="https://github.com/nikic/PHP-Parser">Nikic&#39;s PHP-Parser</a> project. This will let us parse a language that looks like PHP code (and is syntactically identical).</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">function compile($code) {
+    $parser = new PhpParser\Parser(new PhpParser\Lexer);
+    $stmts = $parser-&gt;parse(&#39;&lt;?php &#39; . $code);
+}
+</code></pre></div>
+<p>At this point, the <code>$stmts</code> variable is an array representation of an AST of our code.</p>
+
+<h2>Compiler</h2>
+
+<p>Let&#39;s compile the following code:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$a = 1;
+</code></pre></div>
+<p>It&#39;s a simple line, but there&#39;s a bit of setup we&#39;ll need to do.</p>
+
+<p>First, we need some way of keeping track of available memory addresses. These will be used as addresses for the heap that was added to the interpreter last time.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$state = [
+    &quot;nextAddress&quot; =&gt; 0,
+];
+</code></pre></div>
+<p>And we also need some way of remembering which variable maps to which address. So we&#39;ll create an associative array to map variable names to addresses for the compiler:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$state = [
+    &quot;nextAddress&quot; =&gt; 0,
+    &quot;variables&quot; =&gt; [],
+];
+</code></pre></div>
+<p>And we need something to store the finished object code, so we&#39;ll create an array of operations:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$state = [
+    &quot;code&quot; =&gt; [],
+    &quot;nextAddress&quot; =&gt; 0,
+    &quot;variables&quot; =&gt; [],
+];
+</code></pre></div>
+<p>Finally we need some way of compiling the nodes of the AST. So let&#39;s make a function to do that:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">function compileNodes(array $nodes, array &amp;$state) {
+    foreach ($nodes as $node) {
+        compileNode($node, $state);
+    }
+}
+</code></pre></div>
+<p>Now, we have enough to actually finish our <code>compile()</code> function:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">function compile($code) {
+    $parser = new PhpParser\Parser(new PhpParser\Lexer);
+    $stmts = $parser-&gt;parse(&#39;&lt;?php &#39; . $code);
+    $state = [
+        &quot;code&quot; =&gt; [],
+        &quot;nextAddress&quot; =&gt; 0,
+        &quot;variables&quot; =&gt; [],
+    ];
+    compileNodes($stmts, $state);
+    return $state[&#39;code&#39;];
+}
+</code></pre></div>
+<h2>The Actual Compilation</h2>
+
+<p>Now we still need to implement <code>compileNode()</code>. The implementation is basically similar to our interpreter, in that it&#39;s just a giant switch. For each <code>Node</code> type, we&#39;ll need a separate compile rule:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">function compileNode(PhpParser\Node $node, array &amp;$state) {
+    switch ($node-&gt;getType()) {
+
+    }
+}
+</code></pre></div>
+<p>For our target code (<code>$a = 1</code>), the first node type we&#39;ll encounter is <code>Expr_Assign</code>. So we&#39;ll need to issue an assign operation, with the addresses of the value and the target result.</p>
+
+<p>To find those addresses, we can just let the compiler do it for us by compiling those nodes before we emit our assign operation.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">case &#39;Expr_Assign&#39;:
+    $var = compileNode($node-&gt;var, $state);
+    $value = compileNode($node-&gt;value, $state);
+    $state[&#39;code&#39;][] = [&quot;assign&quot;, $value, $var];
+    return $value;
+</code></pre></div>
+<p>Note the final return. That&#39;s important, as all expressions have return values. That&#39;s what allows the <code>$var = compileNode(...)</code> to work.</p>
+
+<p>Now, there&#39;s something interesting to note there. Because of the tree structure of the AST, we don&#39;t really care what&#39;s inside <code>$node-&gt;value</code>. We&#39;ll just let the compiler sort that out by compiling that node. This greatly simplifies our compiler, since we can just recurse to compile the children.</p>
+
+<p>So if we try running the code now, we&#39;ll notice that it won&#39;t work. We don&#39;t have compiler rules for <code>$a</code> (<code>Expr_Variable</code>) or <code>1</code> (<code>Scalar_LNumber</code>). So we need to add those rules:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">case &#39;Expr_Variable&#39;:
+    if (!isset($state[&#39;variables&#39;][$node-&gt;name])) {
+        // It&#39;s a new variable, assign it the next free address
+        $state[&#39;variables&#39;][$node-&gt;name] = $state[&#39;nextAddress&#39;]++;
+    }
+    return $state[&#39;variables&#39;][$node-&gt;name];
+case &#39;Scalar_LNumber&#39;:
+    // Since the compiler returns *addresses*, we need to issue a store command
+    // and create a temporary variable.
+    $result = $state[&#39;nextAddress&#39;]++;
+    $state[&#39;code&#39;][] = [&quot;store&quot;, $node-&gt;value, $result];
+    return $result;
+</code></pre></div>
+<p>Now we have enough to run our compiler!!!</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$code = &#39;$a = 1&#39;;</span>
+<span class="x">$ops = compile($code);</span>
+<span class="x">// $ops = [</span>
+<span class="x">//     [&#39;store&#39;, 1, 1],</span>
+<span class="x">//     [&#39;assign&#39;, 1, 0],</span>
+<span class="x">// ];</span>
+</code></pre></div>
+<p>Looking at that, the variable <code>$a</code> will have an address of <code>0</code> (since the <code>$node-&gt;var</code> is compiled first), and the constant <code>1</code> will be stored in the temporary address of <code>1</code>. So we have working code!!!</p>
+
+<p>But it really doesn&#39;t do anything interesting. So let&#39;s add in some actual logic: addition:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">case &#39;Expr_BinaryOp_Plus&#39;:
+    // Compile the left side of the `+` operator
+    $a = compileNode($node-&gt;left, $state);
+    // Compile the right side of the operator
+    $b = compileNode($node-&gt;right, $state);
+    // Create a new result temporary variable
+    $result = $state[&#39;nextAddress&#39;]++;
+    // issue the addition command with the proper addresses.
+    $state[&#39;code&#39;][] = [&#39;add&#39;, $a, $b, $result];
+    return $result;
+</code></pre></div>
+<p>Now let&#39;s try running that code:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$code = &#39;</span>
+<span class="x">    $a = 1;</span>
+<span class="x">    $b = 2;</span>
+<span class="x">    $c = $a + $b;</span>
+<span class="x">&#39;;</span>
+<span class="x">$ops = compile($code);</span>
+<span class="x">// $ops = [</span>
+<span class="x">//     [&#39;store&#39;, 1, 0],</span>
+<span class="x">//     [&#39;assign&#39;, 0, 1],</span>
+<span class="x">//     [&#39;store&#39;, 2, 2],</span>
+<span class="x">//     [&#39;assign, 2, 3&#39;],</span>
+<span class="x">//     [&#39;add&#39;, 1, 3, 4],</span>
+<span class="x">//     [&#39;assign&#39;, 4, 5],</span>
+<span class="x">// ];</span>
+</code></pre></div>
+<p>After running this, our heap would look like:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">[1, 1, 2, 2, 3, 3]
+</code></pre></div>
+<p>Note that we&#39;re duplicating values. That&#39;s because <code>$a = 1</code> results in 2 memory spaces being used, one for the <code>1</code>, and one for the variable <code>$a</code>.</p>
+
+<p>If we wanted to get really fancy, we could write an optimizer which would remove that redundant assignment. We&#39;ll talk about that towards the end of the post, as it requires significantly more complicated logic to implement.</p>
+
+<h2>I/O</h2>
+
+<p>Let&#39;s add support for <code>echo</code>:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">case &#39;Stmt_Echo&#39;:
+    foreach ($node-&gt;exprs as $expression) {
+        $output = compileNode($expression, $state);
+        $state[&#39;code&#39;][] = [&#39;print_num&#39;, $output];
+    }
+    // echo is a statement, it has no return value.
+    break;
+</code></pre></div>
+<p>Pretty simple, right!</p>
+
+<p>Notice something though. The Echo command starts with <code>Stmt</code>. This is our first statement. Statements differ from expressions in that statements cannot be nested. They <em>must</em> be the outermost piece of code. This means that statements do not have return values. Which is why we have a <code>break</code> instead of a <code>return $address</code>.</p>
+
+<p>Any time you see a node starting with <code>Stmt</code>, it&#39;s a statement and has no return value. Every time you see a node starting with <code>Expr</code>, it&#39;s an expression and therefore must have a return value.</p>
+
+<h2>Jumps</h2>
+
+<p>Now, here&#39;s where things get interesting. We&#39;re simultaneously adding great power, as well as great evil. Let&#39;s add support for <code>goto</code>:</p>
+
+<p>There are two cases. Case A, where you jump to a label that hasn&#39;t been seen yet:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">goto a;
+a:
+</code></pre></div>
+<p>And Case B, where you jump to a label that has been seen already.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">a:
+goto a;
+</code></pre></div>
+<p>So our jump code will need to handle both cases.</p>
+
+<p>First, we need to add a pair of state variables to our earlier compiler state:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$state = [
+    &quot;code&quot; =&gt; [],
+    &quot;goto&quot; =&gt; [],
+    &quot;labels&quot; =&gt; [],
+    &quot;nextAddress&quot; =&gt; 0,
+    &quot;variables&quot; =&gt; [],
+];
+</code></pre></div>
+<p>Now, we can compile our goto operation:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">case &#39;Stmt_Goto&#39;:
+    $label = $node-&gt;name;
+    if (isset($state[&#39;labels&#39;][$label])) {
+        // we&#39;ve already seen this label (case B)
+        // So simply look up the address of the label in the state
+        $state[&#39;code&#39;][] = [&#39;jump&#39;, $state[&#39;labels&#39;][$label]];
+    } else {
+        // create the op code, but set the target address to a bad one
+        $state[&#39;code&#39;][] = [&#39;jump&#39;, -1];
+        // store the location of the goto for later correction.
+        // When we find the label, we&#39;ll loop through these and &quot;correct&quot;
+        $state[&#39;goto&#39;][$label][] = count($state[&#39;code&#39;]) - 1;
+    }
+</code></pre></div>
+<p>And finally, the label:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">case &#39;Stmt_Label&#39;:
+    $label = $node-&gt;name;
+    // the location of the label;
+    $idx = count($state[&#39;code&#39;]);
+    $state[&#39;labels&#39;][$label] = $idx;
+    if (!empty($state[&#39;goto&#39;][$label])) {
+        // correct any already-issued goto statements
+        foreach ($state[&#39;goto&#39;][$label] as $key) {
+            $state[&#39;code&#39;][$key][1] = $idx;
+        }
+        unset($state[&#39;goto&#39;][$label]);
+    }
+    break;
+</code></pre></div>
+<p>Basically, we set the offset of the label, then go through and update any existing jumps for that label to point to the correct offset.</p>
+
+<p>Now, let&#39;s try compiling some code:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$a = 1;
+goto add;
+$a = 2;
+add:
+$b = $a + 1;
+</code></pre></div>
+<p>That will result in:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$ops = [
+    [&#39;store&#39;, 1, 0],
+    [&#39;assign&#39;, 0, 1],
+    [&#39;jump&#39;, 5],
+    [&#39;store&#39;, 2, 2],
+    [&#39;assign&#39;, 2, 1],
+    [&#39;store&#39;, 1, 3],
+    [&#39;add&#39;, 1, 3, 4],
+    [&#39;assign&#39;, 4, 5],
+];
+</code></pre></div>
+<p>So far so good. We now can jump. That means we can loop as well!</p>
+
+<h2>Conditional Jumps</h2>
+
+<p>We want some way to do conditional code. So let&#39;s compile an <code>if</code> statement. We&#39;ll compile it to the <code>jumpz</code> operation in our interpreter (jump-if-zero):</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">case &#39;Stmt_If&#39;:
+    $cond = compileNode($node-&gt;cond, $state);
+    // save the jumpz, as we&#39;ll need to find it later
+    $jumpidx = count($state[&#39;code&#39;]);
+    // Set the location to jump to `-1` until we know it later
+    $state[&#39;code&#39;][] = [&quot;jumpz&quot;, $cond, -1];
+    compileNodes($node-&gt;stmts, $state);
+    $state[&#39;code&#39;][$jumpidx][2] = count($state[&#39;code&#39;]);
+    break;
+</code></pre></div>
+<p>Awesome!</p>
+
+<p>That means that we are effectively compiling code into jumps:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$a = 1;
+$b = 2;
+$c = 3;
+if ($a + $b + $c) {
+    $a = 2;
+}
+echo $a;
+</code></pre></div>
+<p>Would become:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$a = 1;
+$b = 2;
+$c = 3;
+$d = $a + $b;
+$e = $d + $c;
+if (!$e) {
+    goto end;
+}
+$a = 2;
+end:
+echo $a;
+</code></pre></div>
+<p>That&#39;s fairly easy to follow, but what about if we wanted to support <code>else</code> statements?</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$a;
+if ($b) {
+    $c;
+} else {
+    $d;
+}
+$e;
+</code></pre></div>
+<p>Would need to transform into </p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$a
+if (!$b) {
+    goto else;
+}
+$c;
+goto end;
+else:
+$d
+end;
+$e;
+</code></pre></div>
+<p>Notice the interleave. That there&#39;s a goto after the body of the if jumping to the end. That&#39;s important. So let&#39;s see how we&#39;d adjust our <code>if</code> compilation to generate that.:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">case &#39;Stmt_If&#39;:
+    $cond = compileNode($node-&gt;cond, $state);
+    // save the jumpz, as we&#39;ll need to find it later
+    $jumpidx = count($state[&#39;code&#39;]);
+    $state[&#39;code&#39;][] = [&quot;jumpz&quot;, $cond, -1];
+
+    // Compile the if body
+    compileNodes($node-&gt;stmts, $state);
+    $endJumpidx = count($state[&#39;code&#39;]);
+    // default to the next instruction, if there&#39;s an else we&#39;ll update it
+    $state[&#39;code&#39;][] = [&quot;jump&quot;, $endJumpidx + 1];
+
+    // set the jumpz node properly so we jump into the else block if we have it.
+    $state[&#39;code&#39;][$jumpidx][2] = count($state[&#39;code&#39;]);
+    if ($node-&gt;else) {
+        // we have else, so compile it!
+        compileNodes($node-&gt;else-&gt;stmts, $state);
+
+        // Finally, update the jump at the end of the if block to point to the end
+        $state[&#39;code&#39;][$endJumpidx][1] = count($state[&#39;code&#39;]);
+    }
+    break;
+</code></pre></div>
+<p>And that&#39;s all there is to it!</p>
+
+<p>That part is fairly involved, but it gets the job done. Try drawing out what&#39;s happening to better understand it.</p>
+
+<h2>Going Further</h2>
+
+<p>This is a simple, unoptimized compiler. We&#39;re not dealing with types at all (we assume everything is a number). We&#39;re not changing behavior, we&#39;re just converting from one source code to another, each with the same semantics.</p>
+
+<p>If we wanted to change the semantics (the way types are handled, etc), then we&#39;d need another intermediary representation to allow us to do the conversions safely. This is how <a href="https://github.com/google/recki-ct/blob/master/doc/2_basic_operation.md">Recki-CT works</a>.</p>
+
+<p>But for simple compilers, that&#39;s not necessary.</p>
+
+<h2>Conclusion</h2>
+
+<p>We&#39;ve just built a simple compiler from a pseudo-PHP language to our stack machine in about 100 lines of code. It deals with things like variable assignment for us, making our life easier. This lets us write in a high level language, yet still execute a very simple backend language.</p>
+
+<p>Plus, with a simpler front-end language, we can build far more complicated programs using our simple implementation.</p>
+
+<p>And this is the power of these simple machines. With the right operators and glue code, very simple and easy to understand machines are capable of incredibly complicated tasks.</p>
+
+<h2>Summary</h2>
+
+<p><span style="background-color: yellow;">
+    A compiler allows you to write in a different high level language than you run on your interpreter.
+</span></p>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html"><strong>compilers</strong></a></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

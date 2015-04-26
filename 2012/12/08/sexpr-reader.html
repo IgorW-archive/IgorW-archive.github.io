@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>S-expressions: Reader</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 8th, 2012
+    </div>
+
+    <div class="body">
+        <h1>S-expressions: Reader</h1>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html"><strong>reader</strong></a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+<p>The previous post discussed the first step of parsing: tokenization. Now I
+want to dive into token parsing. Usually the program that parses the tokens
+into an abstract syntax tree or AST is called a <em>parser</em>.</p>
+
+<p>In the context of s-expressions and Lisp, it is usually refered to as a
+<em>reader</em>, so that is the terminology that I will use.</p>
+
+<p><center>
+    <img src="/sexpr/reader.png" alt="parser process">
+</center></p>
+
+<h2>Abstract syntax tree</h2>
+
+<p>The lexer has constructed a nice token stream, but that is not very useful
+yet. A token stream does not tell me very much. What I want is a format that
+represents the hierarchy of the data.</p>
+
+<p>Which is exactly what an abstract syntax tree does. For sexprs the AST is
+basically just an in-memory representation of the lists which form the sexpr.</p>
+
+<p>Similarly to how token streams usually have token names, ASTs usually have
+node names. However, since sexprs can be considered a data format I will just
+parse them into flat PHP arrays directly.</p>
+
+<p>Going back to the sexprs that I fed into the lexer and the tokens it spat out,
+what should I expect the reader to give me from those tokens? Here are the
+outputs that I expect:</p>
+
+<div class="ascii-table"><pre>
++---------------+---------------------------------+------------------------+
+| Sexpr         | Tokens                          | AST                    |
++---------------+---------------------------------+------------------------+
+| foo           | ["foo"]                         | ["foo"]                |
+| an-atom       | ["an-atom"]                     | ["an-atom"]            |
+| ()            | ["(", ")"]                      | [[]]                   |
+| (foo)         | ["(", "foo", ")"]               | [["foo"]]              |
+| (foo bar)     | ["(", "foo", "bar", ")"]        | [["foo", "bar"]]       |
+| (foo bar baz) | ["(", "foo", "bar", "baz", ")"] | [["foo", "bar"]]       |
+| (+ 1 2)       | ["(", "+", "1", "2", ")"]       | [["+", 1, 2]]          |
++---------------+---------------------------------+------------------------+
+</pre></div>
+
+<p>Note that the AST is always an array. The reason for that is that the top
+level of the sexpr can contain many lists like so:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">foo</span><span class="p">)</span>
+<span class="p">(</span><span class="nv">bar</span><span class="p">)</span>
+<span class="p">(</span><span class="nv">baz</span><span class="p">)</span>
+</code></pre></div>
+<p>Which would result in:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">[[&quot;foo&quot;], [&quot;bar&quot;], [&quot;baz&quot;]]</span>
+</code></pre></div>
+<p>Also note that the parser will already make some type distinctions. If an atom
+looks like a number, it will be represented as an integer.</p>
+
+<h2>Basic reader</h2>
+
+<p>The interface of the reader is very straight-forward. It has a single <em>parse</em>
+method which takes the token stream as an argument and returns the AST.</p>
+
+<p>Usage:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$reader = new Reader();</span>
+<span class="x">$ast = $reader-&gt;parse($tokens);</span>
+</code></pre></div>
+<p>Source:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias;</span>
+
+<span class="x">class Reader</span>
+<span class="x">{</span>
+<span class="x">    public function parse(array $tokens)</span>
+<span class="x">    {</span>
+<span class="x">        $ast = [];</span>
+
+<span class="x">        for ($i = 0, $length = count($tokens); $i &lt; $length; $i++) {</span>
+<span class="x">            $token = $tokens[$i];</span>
+
+<span class="x">            // extract atoms</span>
+<span class="x">            if (!in_array($token, [&#39;(&#39;, &#39;)&#39;])) {</span>
+<span class="x">                $ast[] = $this-&gt;normalizeAtom($token);</span>
+<span class="x">                continue;</span>
+<span class="x">            }</span>
+
+<span class="x">            // parse list recursively</span>
+<span class="x">            if (&#39;(&#39; === $token) {</span>
+<span class="x">                list($listTokens, $i) = $this-&gt;extractListTokens($tokens, $i);</span>
+<span class="x">                $ast[] = $this-&gt;parse($listTokens);</span>
+<span class="x">                continue;</span>
+<span class="x">            }</span>
+<span class="x">        }</span>
+
+<span class="x">        return $ast;</span>
+<span class="x">    }</span>
+
+<span class="x">    ...</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>If you recall the different implicit token types: <code>T_OPEN</code>, <code>T_CLOSE</code>,
+<code>T_ATOM</code> and <code>T_QUOTE</code>. And I will ignore quoting for now.</p>
+
+<p>Any token that is not an opening or closing brace is an atom. Atoms are
+normalized, then appended to the AST. Normalization just detects the atom type
+and casts it accordingly.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">private function normalizeAtom($atom)</span>
+<span class="x">{</span>
+<span class="x">    if (is_numeric($atom)) {</span>
+<span class="x">        return (int) $atom;</span>
+<span class="x">    }</span>
+
+<span class="x">    return $atom;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>If the reader finds an open token, it must read all tokens until it finds a
+matching close token and then parse the whole range into a list. That list can
+then be appended to the AST.</p>
+
+<p>The method for finding the matching brace and extracting the tokens simply
+needs to keep track of the nesting level and stop when the nesting level goes
+back to zero.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">private function extractListTokens(array $tokens, $i)</span>
+<span class="x">{</span>
+<span class="x">    $level = 0;</span>
+<span class="x">    $init = $i;</span>
+
+<span class="x">    for ($length = count($tokens); $i &lt; $length; $i++) {</span>
+<span class="x">        $token = $tokens[$i];</span>
+
+<span class="x">        if (&#39;(&#39; === $token) {</span>
+<span class="x">            $level++;</span>
+<span class="x">        }</span>
+
+<span class="x">        if (&#39;)&#39; === $token) {</span>
+<span class="x">            $level--;</span>
+<span class="x">        }</span>
+
+<span class="x">        if (0 === $level) {</span>
+<span class="x">            return [</span>
+<span class="x">                array_slice($tokens, $init + 1, $i - ($init + 1)),</span>
+<span class="x">                $i,</span>
+<span class="x">            ];</span>
+<span class="x">        }</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>The reader is designed to be stateless, which is why it does not store the
+tokens or the parsing position in member variables.</p>
+
+<h2>Quoted values</h2>
+
+<p>In its current state, the reader is able to parse most of the provided test
+cases. One remaining problem however are quoted values.</p>
+
+<p>In fact, because this reader does not represent the AST with an abstract type
+of node, we have no way of distinguishing between quoted and non-quoted
+values. There is an easy hack which allows it to be handled in a fairly clean
+way though: encapsulating quoted values within <code>QuotedValue</code> objects.</p>
+
+<p>The <code>QuotedValue</code> class just wraps around a value to mark it as quoted:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias;</span>
+
+<span class="x">class QuotedValue</span>
+<span class="x">{</span>
+<span class="x">    private $value;</span>
+
+<span class="x">    public function __construct($value)</span>
+<span class="x">    {</span>
+<span class="x">        $this-&gt;value = $value;</span>
+<span class="x">    }</span>
+
+<span class="x">    public function getValue()</span>
+<span class="x">    {</span>
+<span class="x">        return $this-&gt;value;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Now, in order to parse these quoted values correctly we need to detect the
+<code>T_QUOTE</code> token:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">// wrap quoted value</span>
+<span class="x">if (&quot;&#39;&quot; === $token) {</span>
+<span class="x">    list($parsedToken, $i) = $this-&gt;parseQuotedToken($tokens, $i);</span>
+<span class="x">    $ast[] = $parsedToken;</span>
+<span class="x">    continue;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>The quoted value is either an atom or a list. Since lists consist of multiple
+tokens, the reader needs to do some extra work here to completely extract all
+of the tokens:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">private function parseQuotedToken(array $tokens, $i)</span>
+<span class="x">{</span>
+<span class="x">    // skip past quote char</span>
+<span class="x">    $i++;</span>
+
+<span class="x">    // quoted atom</span>
+<span class="x">    if (&#39;(&#39; !== $tokens[$i]) {</span>
+<span class="x">        $atom = $this-&gt;normalizeAtom($tokens[$i]);</span>
+<span class="x">        return [</span>
+<span class="x">            new QuotedValue($atom),</span>
+<span class="x">            $i,</span>
+<span class="x">        ];</span>
+<span class="x">    }</span>
+
+<span class="x">    // quoted list</span>
+<span class="x">    list($listTokens, $i) = $this-&gt;extractListTokens($tokens, $i);</span>
+<span class="x">    $list = $this-&gt;parse($listTokens);</span>
+
+<span class="x">    return [</span>
+<span class="x">        new QuotedValue($list),</span>
+<span class="x">        $i,</span>
+<span class="x">    ];</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>And that&#39;s it, the reader is now correctly parsing quoted values as well.</p>
+
+<h2>Problems</h2>
+
+<p>This implementation is quite naïve, a lot of stuff is missing. The biggest
+problem is the complete lack of error handling.</p>
+
+<p>A parser should validate its input correctly. It should expect valid follow-up
+tokens to the current one and throw an exception in your face if you feed it
+invalid tokens.</p>
+
+<p>Speaking of error handling and exceptions, it should try to give useful
+exception messages. If a parse error occurs, it should tell you exactly where,
+with a contextual snippet of the input code. And it should include line
+numbers.</p>
+
+<p>Does the reader have access to the line numbers? No. The lexer did not provide
+them. If the token data structure were extended to contain more information,
+then the reader would be able to give the user more meaningful error messages.</p>
+
+<p>This is what the token data structure could look like:</p>
+<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">Token</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">type</span><span class="p">;</span>
+    <span class="n">string</span> <span class="n">source</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">line</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">offset</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>But I will keep it simple for now.</p>
+
+<h2>Parsing an s-expression</h2>
+
+<p>With the lexer and the parser in place, they can now be combined to parse
+s-expressions into an AST:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$code = &#39;(+ 1 2)&#39;;</span>
+
+<span class="x">$lexer  = new Lexer();</span>
+<span class="x">$reader = new Reader();</span>
+
+<span class="x">$tokens = $lexer-&gt;tokenize($code);</span>
+<span class="x">$ast    = $reader-&gt;parse($tokens);</span>
+
+<span class="x">var_dump($ast);</span>
+<span class="x">// [[&quot;+&quot;, 1, 2]]</span>
+</code></pre></div>
+<p>Hooray, it works!</p>
+
+<h2>Conclusion</h2>
+
+<ul>
+<li>The reader parses a token stream into an AST.</li>
+<li>Writing a reliable parser is hard.</li>
+<li>I want to know how to interpret an abstract syntax tree.</li>
+</ul>
+
+<h2>Further reading</h2>
+
+<ul>
+<li><a href="https://github.com/nikic/PHP-Parser">nikic/PHP-Parser</a></li>
+<li><a href="https://github.com/schmittjoh/parser-lib">schmittjoh/parser-lib</a></li>
+<li><a href="https://github.com/fabpot/Twig">fabpot/Twig</a></li>
+<li><a href="https://github.com/igorw/ilias/blob/master/src/Igorw/Ilias/Reader.php">Source code: <code>Igorw\Ilias\Reader</code></a></li>
+<li><a href="https://github.com/igorw/ilias/blob/master/tests/Igorw/Ilias/ReaderTest.php">Source code: <code>Igorw\Ilias\ReaderTest</code></a></li>
+</ul>
+
+<hr>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html"><strong>reader</strong></a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

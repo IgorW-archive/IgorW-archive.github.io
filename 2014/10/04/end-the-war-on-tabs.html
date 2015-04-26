@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>End the war on tabs</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Oct 4th, 2014
+    </div>
+
+    <div class="body">
+        <h1>End the war on tabs</h1>
+
+<p>This is a transcript of a talk I gave at PHPNW14 in October 2014.</p>
+
+<h2>The war on tabs</h2>
+
+<p>Programming is an artistic medium. It is a form of self-expression.</p>
+
+<p>Yet we have groups, such as the PHP-FIG, that are trying to set up rules that restrict this expressive power. They have started a war on tabs, and they will not stop until each and every tab has been extinguished.</p>
+
+<p>For the unaware, the PHP-FIG have released a document detailing how every tab is to be replaced by four spaces. They are literally replacing these beautiful tabs with emptiness!</p>
+
+<p>What idea does the tab represent? Why do they hate it so much? The tab represents freedom. The freedom to not fit into the binary of newlines and spaces. The freedom to explore. To be the way you are, or the way you want to be.</p>
+
+<p>Since there is no definition of what a tab should look like, it <em>can</em> be whatever you want it to be!</p>
+
+<p>A tab can be rainbows! It can be kittens! Or it can be an entire universe! Within a single tab.</p>
+
+<p><center>
+    <img src="/img/ws/kitten.png">
+</center></p>
+
+<h2>Whitespace</h2>
+
+<p>Why are tabs important? They are necessary in order to write programs in whitespace.</p>
+
+<div style="height: 300px;"></div>
+
+<p>Whitespace, of course, is a programming language. It was created in 2003 by Edwin Brady, in an attempt to solve the halting problem. That attempt was successful, and you can see the decision procedure here:</p>
+
+<blockquote>
+<p>&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br /></p>
+</blockquote>
+
+<p>Just kidding. Edwin forgot to turn off trimming of trailing spaces in his editor, so the decision procedure was lost.</p>
+
+<p>How many lines does it take to write a whitespace interpreter in whitespace? 2927 lines, as you can see here.</p>
+
+<blockquote>
+<p>&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br /></p>
+</blockquote>
+
+<p>Oh wait, that’s a bit too small. Let me zoom in.</p>
+
+<blockquote>
+<p>&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br /></p>
+</blockquote>
+
+<p>That’s better.</p>
+
+<p>To clarify, this is a program written in whitespace, that is able to take any other whitespace program, and run it. It&#39;s as if you re-wrote PHP in PHP.</p>
+
+<p>And here is an example of a hello world program. It is running inside that whitespace interpreter, that is itself written in whitespace. Twice. And then running inside of a whitespace interpreter that is written in PHP.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$ (cat examples/wsinterws.ws; cat examples/hworld.ws; echo -ne &quot;\n\n\nquit\n\n\n&quot;) | hhvm bin/interpreter examples/wsinterws.ws
+whitespace interpreter written in whitespace
+made by oliver burghard smarty21@gmx.net
+in his free time for your and his joy
+good time and join me to get whitespace ready for business
+for any other information dial 1-900-whitespace
+or get soon info at www.whitespace-wants-to-be-taken-serious.org
+please enter the program and terminate via 3xenter,&#39;quit&#39;,3xenter
+-- ws interpreter ws -------------------------------------------
+whitespace interpreter written in whitespace
+made by oliver burghard smarty21@gmx.net
+in his free time for your and his joy
+good time and join me to get whitespace ready for business
+for any other information dial 1-900-whitespace
+or get soon info at www.whitespace-wants-to-be-taken-serious.org
+please enter the program and terminate via 3xenter,&#39;quit&#39;,3xenter
+-- ws interpreter ws -------------------------------------------
+Hello, world of spaces!
+</code></pre></div>
+<p>Pretty simple stuff.</p>
+
+<h2>Stack machine</h2>
+
+<p>So how does the whitespace language work? It&#39;s really straightforward.</p>
+
+<p>Like most modern programming languages, whitespace is based on the idea of a stack machine. It has an instruction set consisting of 24 instructions for stack, arithmetic, heap, control flow and I/O operations.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">stack: push, dup, ref, swap, discard, slide
+arithmetic: add, sub, mul, div, mod
+heap: store, retrieve
+flow: label, call, jump, jumpz, jumplz, ret, exit
+i/o: write_char, write_num, read_char, read_num
+</code></pre></div>
+<p>These instructions are encoded as sequences of tabs, spaces and newlines.</p>
+
+<p>While you can also use other characters, they will be ignored. Only the actual whitespace is significant. This allows whitespace code to be embedded within other programming languages, turning it into a DSL for general purpose computing!</p>
+
+<p>Another benefit is that printing a whitespace program takes no ink at all! It&#39;s very environmentally friendly.</p>
+
+<p>In order to read a whitespace program, you simply read between the lines. Literally.</p>
+
+<h2>Stack</h2>
+
+<p>A stack machine is a loop with a switch statement inside. The switch statement switches between instructions. The instructions modify the stack.</p>
+
+<p>A stack is a data structure with two operations: push and pop. Push adds stuff to the top. Pop removes stuff from the top.</p>
+
+<p>The stack operations in whitespace allow you to do additional operations like duplicate, index into, and swap.</p>
+
+<h2>Arithmetic</h2>
+
+<p>Once you add arithmetic operations, you can do calculations. This type of stack machine is also known as an RPN calculator.</p>
+
+<h2>Heap</h2>
+
+<p>In addition to the stack, whitespace also offers a heap. The heap is a block of memory that can be indexed into. You can store values at arbitrary locations, and fetch data out as you need it.</p>
+
+<p>It&#39;s a key-value store.</p>
+
+<p><center>
+    <img src="/img/ws/register.gif">
+</center></p>
+
+<h2>Control flow</h2>
+
+<p>But there are two really important parts missing. The first is control flow. Without control flow, this machine is not yet turing complete. That means that it will just run through the instructions linearly until it reaches the end, without any chance of going back. Being able to go back is part of what makes programs interesting in the first place!</p>
+
+<p>The way this is accomplished is by introducing jumps, also known as (ghasp!) goto. Yes, your favourite programming language probably uses goto, and so does your CPU. Even Dijkstra knows this.</p>
+
+<p><center>
+    <img src="/img/ws/dijkstra.png">
+</center></p>
+
+<p>Whitespace allows declaring labels and then jumping to said labels, conditionally or non-conditionally. Where the condition can be a zero check or a less-than-zero check.</p>
+
+<p><center>
+    <img src="/img/ws/goto.gif">
+</center></p>
+
+<h2>I/O</h2>
+
+<p>The last missing piece is I/O. Without input/output instructions, the VM will just generate a lot of hot air. Which is awesome for cold winter days, but not very useful, as the computations are not observable.</p>
+
+<p>I/O allows interaction with the Real World (tm).</p>
+
+<h2>Turing completeness</h2>
+
+<p>What do we get when we combine all of these instructions? A turing complete system.</p>
+
+<p>Alan Turing was working on the halting problem, which he proved to be undecidable. That is the reason why programming is hard. That is the reason we cannot detect infinite loops.</p>
+
+<p>Turing complete systems have a notion of universality, meaning that any turing complete system can emulate any other turing complete system.</p>
+
+<p><center>
+    <img src="/img/ws/lap.jpg">
+</center></p>
+
+<p>And since any turing complete system can emulate any other turing complete system, including itself... It is possible to write a whitespace interpreter in whitespace.</p>
+
+<p>And here is is: The self-interpreter I showed you earlier:</p>
+
+<blockquote>
+<p>&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br />
+&nbsp;<br /></p>
+</blockquote>
+
+<p>But how does it run?</p>
+
+<ul>
+<li>So we have a computer with a CPU. It&#39;s likely to be an x86 architecture these days.</li>
+<li>There is the PHP interpreter that is written in C, and it is compiled down to x86 machine code.</li>
+<li>The PHP interpreter runs PHP programs, for example a whitespace interpreter written in PHP.</li>
+<li>This whitespace interpreter is able to run any whitespace program. For example, a whitespace interpreter written in whitespace.</li>
+<li>This whitespace interpreter is able to run any whitespace program. For example, a whitespace interpreter written in whitespace.</li>
+<li>This whitespace interpreter is able to run any whitespace program. For example, a hello world written in whitespace.</li>
+</ul>
+
+<p>So when you run this stack of stack machines, you will have to wait a while. But in the end, you will be rewarded:</p>
+
+<blockquote>
+<p>Hello, world of spaces!</p>
+</blockquote>
+
+<p><center>
+    <img src="/img/ws/igor.jpg">
+</center></p>
+
+<h2>Resources</h2>
+
+<ul>
+<li><a href="http://esolangs.org/wiki/Whitespace">Whitespace on Esolangs</a></li>
+<li><a href="http://compsoc.dur.ac.uk/whitespace/">Whitespace homepage</a></li>
+<li><a href="https://github.com/igorw/whitespace-php">igorw/whitespace-php</a></li>
+<li><a href="https://github.com/igorw/wsm">igorw/wsm</a></li>
+</ul>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

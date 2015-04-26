@@ -1,0 +1,2124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <title>igorw</title>
+    <subtitle>weblog</subtitle>
+    <link href="https://igor.io/tags/symfony.atom" rel="self" />
+    <link href="https://igor.io/" />
+    <id>igor.io</id>
+    <updated>2015-04-06T16:35:01+02:00</updated>
+    
+        
+    
+    
+    <entry>
+        <title>Dependency Responsibility</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2013/09/24/dependency-responsibility.html"/>
+        <id>https://igor.io/2013/09/24/dependency-responsibility.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <h1>Dependency Responsibility</h1>
+
+<p>Convenience is great, and many tools provide you with it. Dependency managers
+are one such tool that allow you to easily install any library instantly. But
+you should not use them blindly. There are more important considerations than
+<em>&quot;I want foo right now&quot;</em>. Which type of foo do you want, and how long do you
+want it to last?</p>
+
+<h2>Hairball as a Service</h2>
+
+<p>You can get everything as a service these days. Your software, your
+infrastructure, your platform, your development, your design. You click one
+button and get a whole stack of fluff that you cannot understand or even peek
+into for that matter.</p>
+
+<p>It sounds like a sweet deal. You don&#39;t have to care about how things work. It
+just works.</p>
+
+<p>Except you&#39;re forgetting that it&#39;s software. And software breaks. How do you
+fix it? By turning it off and on again. That works most of the time, but
+eventually you will hit that monster bug that makes your system completely
+FUBAR. And now there is nothing you can do about it, because you are not in
+charge.</p>
+
+<h2>Dependencies</h2>
+
+<p>Overly relying on convenience also exists in the small. You have a requirement
+in your software project, so you install a pre-made library that solves the
+problem for you. It&#39;s usually just one command away.</p>
+
+<p>As far as you&#39;re concerned, this library is a black box. You don&#39;t care how it
+works. You just install it and use it.</p>
+
+<p>Except you&#39;re forgetting that it&#39;s software. And software breaks. How do you
+fix it?</p>
+
+<p>At this point you may have to fix a bug in the library. Writing correct
+programs is difficult, submitting some patches upstream is not a big deal, and
+helps everyone else using that package as well.</p>
+
+<p>But what if:</p>
+
+<ul>
+<li>That bug broke your website, negatively impacting your sales</li>
+<li>It was a security issue that compromised your customers&#39; data</li>
+<li>It was a performance problem that made your site go down completely</li>
+</ul>
+
+<h2>Liability</h2>
+
+<p>Who is liable in open source? Whoever wrote the library that you are using?
+<strong>No.</strong></p>
+
+<p>Every OSS license clearly states that the author is not liable and that there
+is no warranty. If the software you installed makes your server go up in
+smoke, it is <em>your</em> fault.</p>
+
+<p>The upside of OSS is that you <em>are</em> in charge, and you actually <em>can</em> fix
+things when they break. Also, you can prevent them from breaking in the first
+place.</p>
+
+<h2>Responsibility</h2>
+
+<p>When you install a library, <em>you</em> are responsible for the code in that
+library. You are also responsible for the dependencies of your dependencies.
+For any code that you run, it is your responsibility to ensure that it
+operates correctly.</p>
+
+<p>This means that you have to review all of the code that you put into
+production. And make sure it does not contain any destructive bugs or security
+issues. As a by-product, you will properly understand that code, and will be
+able to debug and fix it if things do go wrong.</p>
+
+<h2>Trust</h2>
+
+<p>Obviously it is impossible to review and fully understand every bit of code we
+run. You probably do not vet the source code of the linux kernel, your
+operating system utilities, the webserver of your choosing, your language
+runtime.</p>
+
+<p>It is simply too much code that moves too quickly. So instead you decide to
+trust the maintainers of those packages not to mess it up. Since there is a
+community who peer-reviews, hopefully most issues will be caught.</p>
+
+<p>It is possible to do that for your library dependencies as well. But it should
+be a conscious decision. A well maintained package with a strong community and
+strong BC guarantees is likely to be more trustworthy than some random
+library by some random person on the internets.</p>
+
+<p>But even if it is well maintained, think twice before you trust a code base.
+Even popular packages can be huge piles of garbage.</p>
+
+<h2>Conclusion</h2>
+
+<ul>
+<li>You are responsible for all the code you run in production.</li>
+<li>Keep stability, security and performance in mind.</li>
+<li>Think twice before you trust a package blindly.</li>
+</ul>
+
+        ]]></content>
+    </entry>
+    
+    <entry>
+        <title>Composer Vendor Directory</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2013/09/04/composer-vendor-directory.html"/>
+        <id>https://igor.io/2013/09/04/composer-vendor-directory.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <h1>Composer Vendor Directory</h1>
+
+<p>A common question in composer support is to install packages into a directory
+other than <code>vendor</code>. I want to explain why that is a bad idea.</p>
+
+<p>Achtung: Might be a little ranty.</p>
+
+<p><center>
+    <img src="/img/binders-vendor.png" alt="binders full of vendor">
+</center></p>
+
+<h2>One True Vendor</h2>
+
+<p>You don&#39;t own your vendor directory. When you use composer, you are waiving
+your right to decide where things go. This is for your own good. You should
+not know where composer puts stuff, and frankly, you should not care.</p>
+
+<p>Composer makes it extremely hard for you to install a package anywhere else
+than the one true vendor directory. And this is by design. And there is a good
+reason for that.</p>
+
+<p>Composer targets the PHP community. It aims to grow the library space.
+Libraries should be small, focused, flexible and avoid side-effects. The user
+should be in control.</p>
+
+<p>What sort of side-effects? Don&#39;t create files unless the user asked for them.
+Don&#39;t use global state such as superglobals. Don&#39;t call echo, header or exit.
+Don&#39;t depend on the location of things in the filesystem, the network or
+otherwise.</p>
+
+<h2>Autoloading</h2>
+
+<p>The loading of classes (and functions, etc.) is no exception to this rule. As
+a user, I want to specify my dependencies, run <strong>one command</strong>, include <strong>one
+file</strong>, and be done with it. I don&#39;t want to care about where stuff is
+located, set up include paths, manually include files, define my own autoload
+mappings.</p>
+
+<p>Autoloading solves this problem. If every library defines its own rules for
+autoloading, PHP takes care of the rest. Libraries don&#39;t have to know where
+they or other libs are located. The user is in control.</p>
+
+<p>A composer-managed application should have exactly one single include
+statement. A require <code>vendor/autoload.php</code> in the front controller.</p>
+
+<p>A library should have zero.</p>
+
+<h2>Single directory</h2>
+
+<p>Putting everything into one directory just makes sense.</p>
+
+<p>First off, debugging composer issues. Composer has come a long way, but
+strange things can happen sometimes. Maybe some files are in an inconsistent
+state, maybe someone deleted something accidentally, maybe there was a bug in
+the solver. The point is, composer is not operating correctly due to the state
+of the vendor directory.</p>
+
+<p>You can just try again by <code>rm -rf vendor &amp;&amp; composer install</code>. You don&#39;t have
+to keep track of zillions of possible directories, it&#39;s all in one place.</p>
+
+<p>Second, deployment. When deploying, I want the stuff right there. I want it in
+the right place, I want to be able to push it all at once. With a single
+directory it doesn&#39;t even matter where I run <code>composer install</code>, because the
+result is consistent and easy to manage as part of the build and deployment
+process.</p>
+
+<p>Third, version control. No need to litter your gitignore with random garbage.</p>
+
+<h2>Isolation</h2>
+
+<p>Remember PEAR? Not only was PEAR itself installed into some global-ish
+location (if you were lucky enough to actually successfully install it), but
+all libraries installed via PEAR were global. If you had two projects
+depending on conflicting versions of the same package, you were screwed.</p>
+
+<p>Enough of that. That&#39;s why composer is a dependency manager and not a package
+manager. It manages deps per-project, it isolates them. It disallows sharing
+the same package directory between projects.</p>
+
+<p>Yes, that means you potentially get two copies, but trust me, it&#39;s totally
+worth it.</p>
+
+<h2>Excuses</h2>
+
+<p>Here are some reasons why you would need to move your packages to a specific
+location:</p>
+
+<ul>
+<li><p><strong>Legacy</strong>: You have some legacy project that heavily relies on the location
+of files. You cannot break BC. Recommendation: Let it die.</p></li>
+<li><p><strong>Frontend</strong>: You have some CSS or JS files that must go to the web
+directory. Recommendation: Use symlinks or copy them over.</p></li>
+<li><p><strong>I want to</strong>: No you don&#39;t. Now play nice, and autoload.</p></li>
+</ul>
+
+<p>If you must, there are some tricks such as <a href="http://getcomposer.org/doc/articles/custom-installers.md">custom
+installers</a> or
+<a href="http://getcomposer.org/doc/articles/scripts.md">scripts</a>.</p>
+
+<p>But remember, if you use them you are hurting the ecosystem. And I will get
+mad.</p>
+
+<h2>Conclusion</h2>
+
+<p>The vendor directory is a black box. The public API is <code>vendor/autoload.php</code>.</p>
+
+        ]]></content>
+    </entry>
+    
+    <entry>
+        <title>How heavy is Silex?</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2013/09/02/how-heavy-is-silex.html"/>
+        <id>https://igor.io/2013/09/02/how-heavy-is-silex.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <h1>How heavy is Silex?</h1>
+
+<p>Quite often silex has been described as heavy or bloated. It&#39;s time to put
+this myth to rest.</p>
+
+<p><center>
+    <img src="/img/omnomnom.png" alt="symfony component cookie monster">
+</center></p>
+
+<h2>Quotes</h2>
+
+<blockquote>
+<p>Silex: The world&#39;s largest microframework.</p>
+
+<p>Silex: All the bloat of Symfony but with only half the features.</p>
+
+<p>Silex is so big: It has more lines of code than your project.</p>
+</blockquote>
+
+<h2>Micro-framework</h2>
+
+<p>What an excellent buzzword! Let&#39;s face it, this is an overloaded and mostly
+nebulous term.</p>
+
+<p>I don&#39;t think it&#39;s possible to clearly define what it means. However, I want
+to give a definition of what it means in the context of silex. Silex is a
+route builder, a router, a DI container, based on Symfony2 components.</p>
+
+<p>But the real answer lies in what silex <em>doesn&#39;t</em> do. Unlike a framework, silex
+does not provide any conventions. That means that you are forced to architect
+your own code base. It gives you a lot of power and responsibility.</p>
+
+<p>So what does micro mean? Is it about lines of code? Amount of dependencies?
+No, it&#39;s not.</p>
+
+<p>While I agree that less lines of code and less dependencies are desirable,
+that is not the top priority. Micro means that silex exposes a minimal
+interface. It makes a minimal amount of decisions for you. Everything else
+follows from that principle.</p>
+
+<h2>Dependencies</h2>
+
+<p>So first of all, how many dependencies does silex have? As of right now,
+<strong>7</strong>.</p>
+
+<p>Here they are, in all of their glory:</p>
+
+<ul>
+<li>pimple/pimple</li>
+<li>psr/log</li>
+<li>symfony/debug</li>
+<li>symfony/event-dispatcher</li>
+<li>symfony/http-kernel</li>
+<li>symfony/http-foundation</li>
+<li>symfony/routing</li>
+</ul>
+
+<p>Each one of them does one specific thing. Each is reasonably small in size.</p>
+
+<p>Of course, silex could have implemented all of those features itself. But it
+would mean less re-use, less battle-tested libraries, less interoperability.</p>
+
+<p>To put this into perspective, the Symfony2 standard edition installs <strong>60</strong>
+packages, 41 of which are symfony components. The ZF2 skeleton installs all of
+the <strong>49</strong> components. Laravel4 ships with <strong>58</strong> packages, 28 of which are
+laravel components.</p>
+
+<p>The point of this exercise is not to bash other frameworks. It&#39;s just to show
+that I&#39;m not lying when I say silex has an add-what-you-need philosophy.</p>
+
+<h2>Number of classes, lines of code</h2>
+
+<p>Even though keeping lines of code down is not the primary goal of silex, we
+made sure not to include code that is not needed. So what exactly do you get
+when you use silex?</p>
+
+<p>I grabbed the fine code-measuring tool <code>cloc</code> ran some analysis. After
+removing tests, the entire code base (including deps) consists of <strong>16831
+NCLOC</strong> in <strong>280 classes</strong>. The whole tree (including tests) amounts to <strong>3.5
+MiB</strong>.</p>
+
+<p>However, during a standard request only a fraction of that code is actually
+loaded. The following <strong>50 classes</strong> are actually used:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">* Silex\Application
+* Silex\Controller
+* Silex\ControllerCollection
+* Silex\ControllerResolver
+* Silex\EventListener\ConverterListener
+* Silex\EventListener\LocaleListener
+* Silex\EventListener\MiddlewareListener
+* Silex\EventListener\StringToResponseListener
+* Silex\ExceptionHandler
+* Silex\LazyUrlMatcher
+* Silex\RedirectableUrlMatcher
+* Silex\Route
+* Symfony\Component\EventDispatcher\Event
+* Symfony\Component\EventDispatcher\EventDispatcher
+* Symfony\Component\EventDispatcher\EventDispatcherInterface
+* Symfony\Component\EventDispatcher\EventSubscriberInterface
+* Symfony\Component\HttpFoundation\FileBag
+* Symfony\Component\HttpFoundation\HeaderBag
+* Symfony\Component\HttpFoundation\ParameterBag
+* Symfony\Component\HttpFoundation\Request
+* Symfony\Component\HttpFoundation\Response
+* Symfony\Component\HttpFoundation\ResponseHeaderBag
+* Symfony\Component\HttpFoundation\ServerBag
+* Symfony\Component\HttpKernel\Controller\ControllerResolver
+* Symfony\Component\HttpKernel\Controller\ControllerResolverInterface
+* Symfony\Component\HttpKernel\Event\FilterControllerEvent
+* Symfony\Component\HttpKernel\Event\FilterResponseEvent
+* Symfony\Component\HttpKernel\Event\GetResponseEvent
+* Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent
+* Symfony\Component\HttpKernel\Event\KernelEvent
+* Symfony\Component\HttpKernel\Event\PostResponseEvent
+* Symfony\Component\HttpKernel\EventListener\LocaleListener
+* Symfony\Component\HttpKernel\EventListener\ResponseListener
+* Symfony\Component\HttpKernel\EventListener\RouterListener
+* Symfony\Component\HttpKernel\HttpKernel
+* Symfony\Component\HttpKernel\HttpKernelInterface
+* Symfony\Component\HttpKernel\KernelEvents
+* Symfony\Component\HttpKernel\TerminableInterface
+* Symfony\Component\Routing\CompiledRoute
+* Symfony\Component\Routing\Matcher\RedirectableUrlMatcher
+* Symfony\Component\Routing\Matcher\RedirectableUrlMatcherInterface
+* Symfony\Component\Routing\Matcher\UrlMatcher
+* Symfony\Component\Routing\Matcher\UrlMatcherInterface
+* Symfony\Component\Routing\RequestContext
+* Symfony\Component\Routing\RequestContextAwareInterface
+* Symfony\Component\Routing\Route
+* Symfony\Component\Routing\RouteCollection
+* Symfony\Component\Routing\RouteCompiler
+* Symfony\Component\Routing\RouteCompilerInterface
+</code></pre></div>
+<p>Those 50 classes have a total of <strong>4018 NCLOC</strong>.</p>
+
+<p>Is that more than something like slim, limonade or breeze? Yes. By a factor of
+2-4. Does that matter? I don&#39;t think so.</p>
+
+<p>It is still sufficiently small. I consider re-use, isolation and interop
+provided by silex better than in the other listed projects.</p>
+
+<h2>Minimal interface</h2>
+
+<p>For the most part you will only ever deal with the following types:</p>
+
+<ul>
+<li>Silex\Application</li>
+<li>Silex\Controller</li>
+<li>Silex\Route</li>
+<li>Symfony\Component\HttFoundation\Request</li>
+<li>Symfony\Component\HttFoundation\Response</li>
+<li>Pimple</li>
+</ul>
+
+<p>Learn them, and you can effectively use silex.</p>
+
+<h2>Summary</h2>
+
+<ul>
+<li>Minimal interface &gt; minimal lines of code.</li>
+<li>Silex is quite lightweight.</li>
+<li>The entire public API consists of 5 classes.</li>
+</ul>
+
+        ]]></content>
+    </entry>
+    
+    <entry>
+        <title>Introducing Stack</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2013/05/23/introducing-stack.html"/>
+        <id>https://igor.io/2013/05/23/introducing-stack.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <p><link rel="stylesheet" type="text/css" href="/css/stack.css"></p>
+
+<h1>Introducing Stack</h1>
+
+<p>In the post titled <a href="/2013/02/02/http-kernel-middlewares.html">HttpKernel
+middlewares</a> I brought up the idea of
+bringing rack middlewares to Symfony2.</p>
+
+<p>In order to solidify this effort I would like to announce a new project:
+<a href="http://stackphp.com">Stack</a>.</p>
+
+<p><center>
+    <h1 class="stack-logo"><a href="http://stackphp.com">Stack</a></h1>
+    <p class="lead">Stack is a convention for composing HttpKernelInterface middlewares.</p>
+</center></p>
+
+<p>The name and logo are based on the idea of building a stack of middleware
+layers, each of which handles a particular piece of logic.</p>
+
+<p>Many thanks to <a href="https://twitter.com/beausimensen">@beausimensen</a> and
+<a href="https://twitter.com/hochchristoph">@hochchristoph</a> who helped make this
+happen.</p>
+
+<h2>Conventions</h2>
+
+<p>The main goal of stack is to give the idea of &quot;HttpKernel middlewares&quot; a name,
+so that we can more easily talk about it.</p>
+
+<p>It aims to make the conventions explicit and clearly define what a middleware
+should do and what it should look like. Following them allows for better
+interoperability and consistency between middlewares.</p>
+
+<p>Check <a href="http://stackphp.com">the stack website</a> for the actual conventions.</p>
+
+<h2>Toolbox</h2>
+
+<p>The <a href="https://github.com/stackphp">stackphp organisation on GitHub</a> contains a
+very small set of basic tools make working with stack middlewares easier.
+However, none of those tools are mandatory.</p>
+
+<p>You can create and use stack middlewares without using any of the provided
+tools, as long as you follow the conventions.</p>
+
+<p>Some of the packages (<a href="https://github.com/stackphp/inline">inline</a>,
+<a href="https://github.com/stackphp/CallableHttpKernel">CallableHttpKernel</a>) are
+targetted towards creators of middlewares. Others
+(<a href="https://github.com/stackphp/session">session</a>, <a href="https://github.com/stackphp/url-map">url-map</a>,
+<a href="https://github.com/stackphp/oauth">oauth</a>) are in fact middlewares that you
+can use with your apps.</p>
+
+<p>The most prominent tool is the <a href="https://github.com/stackphp/builder">builder</a>.
+<em>Stack\Builder</em> is an evolution of the original <em>Stack</em> object from the
+HttpKernel middlewares blog post. This ultimately makes stack usable, and
+provides a basis for configuration.</p>
+
+<h2>The future</h2>
+
+<p>Why HttpKernelInterface? Why limit ourselves to Symfony2? Why not target all
+of PHP?</p>
+
+<p>First of all, Symfony provides a nice sandbox to experiment in. The basic
+primitives are there: An HTTP request/response abstraction, a widely deployed
+interface for sending those requests. Lots of popular frameworks are adopting
+the HttpKernelInterface, which provides a large user base.</p>
+
+<p>Of course, PHP itself also already has such an abstraction. It&#39;s called SAPI.
+It would be interesting to extend the scope of middlewares and target all of
+PHP. But in order to do that properly, PHP core would have to be modified to
+make SAPIs extensible.</p>
+
+<p>If we can prove that the concept works for HttpKernel, the broader PHP
+community might be interested in bringing that capability to PHP core. That&#39;s
+a long journey however, we&#39;ll have to take it one step at a time.</p>
+
+<h1 style="text-align: center;">Go stack some middlewares</h1>
+
+<h1 style="text-align: center;"><a href="http://stackphp.com">stackphp.com</a></h1>
+
+<h1 style="text-align: center;"><a href="http://twitter.com/stackphp">@stackphp</a></h1>
+
+        ]]></content>
+    </entry>
+    
+    <entry>
+        <title>Stateless Services</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2013/03/31/stateless-services.html"/>
+        <id>https://igor.io/2013/03/31/stateless-services.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <h1>Stateless Services</h1>
+
+<p>As more frameworks and libraries, particularly in the PHP world, move towards
+adopting the <em>Dependency Injection</em> pattern they are all faced with the
+problem of bootstrapping their application and constructing the object graph.</p>
+
+<p>In many cases this is solved by a <em>Dependency Injection Container</em> (DIC). Such
+a container manages the creation of all the things. The things it manages are
+<em>services</em>. Or are they?</p>
+
+<h2>Services</h2>
+
+<p>To understand what a service is, let&#39;s see how services are defined by <em>Eric
+Evans</em>:</p>
+
+<blockquote>
+<p>When a significant process or transformation in the domain is not a natural
+responsibility of an <em>entity</em> or <em>value object</em>, add an operation to the
+model as standalone interface declared as a <em>service</em>. Define the interface
+in terms of the language of the model and make sure the operation name is
+part of the <em>ubiquitous language</em>. <strong>Make the <em>service</em> stateless.</strong></p>
+
+<p>&mdash; <em>Eric Evans, Domain-Driven Design</em></p>
+</blockquote>
+
+<p>Let that sink in for a moment. Services should be stateless. What does that
+mean exactly?</p>
+
+<p>Service objects should be stateless in the same sense that the HTTP protocol
+is stateless. While the service can have some internal immutable constants,
+interactions with it should not affect that state. In other words, when you
+call a method on a service, the result should depend only on the provided
+arguments, and the service should not keep track of previous calls made.</p>
+
+<p>One benefit that you get from this is scalability. You can move expensive
+operations to a cluster of dedicated machines and it does not matter which one
+responds to a particular request since all of them are independent.</p>
+
+<p>Another great advantage is that complexity is reduced significantly. Stateless
+services are conceptually very similar to functions that have no observable
+side-effects. Absence of mutation makes it a lot easier to understand the
+effects that a particular method call has on the system.</p>
+
+<blockquote>
+<p>Side note: While the examples of services in this post are mostly
+components, application and infrastructure services (as opposed to domain
+services), the concepts apply equally.</p>
+</blockquote>
+
+<h2>Service Container</h2>
+
+<p>A <em>service container</em>, more commonly referred to as <em>Dependency Injection
+Container</em> or <em>Inversion of Control Container</em>, is a construct that combines a
+few patterns in order to aid object graph construction.</p>
+
+<p>It is a dynamic factory that also acts as a registry, as it holds onto the
+service objects it creates. Basically, you tell it how to create things and it
+then creates them for you on demand.</p>
+
+<p>The <em>Symfony2</em> PHP framework ships with a standalone <em>DependencyInjection</em>
+component which implements a service container. The framework uses this
+container to configure and create all of the objects of the framework.</p>
+
+<p><center>
+    <img src="/img/dic/dic.png" alt="DIC">
+</center></p>
+
+<h2>Request</h2>
+
+<p>One of the available services available in Symfony2 is the <code>request</code> service.
+It allows other application services to have the request injected, so that
+they can use that information somehow.</p>
+
+<p>Request <em>service</em>? The request isn&#39;t really a service, is it? It&#39;s a value
+object which represents some immutable state. It does not have any behaviour.
+If anything, it&#39;s a <em>parameter</em>.</p>
+
+<p>Services can depend on other services and on parameters. Parameters are
+constants, they never change. But is the request constant? Does the
+application have one global request that is running all the time?</p>
+
+<p>No. The application handles tons of requests, and every time a service is
+called, the request will be different. It is constantly changing. This means
+that if a service depends on the request, it is not stateless at all.</p>
+
+<p>Therefore all services that depend on the request are violating Eric Evans&#39;
+rule of statelessness. And that has huge implications.</p>
+
+<h2>The request is not a constant</h2>
+
+<p>You may think that for PHP this does not matter, because the entire object
+graph must be constructed for every request anyway. And all services will
+always be scoped to that single request.</p>
+
+<p>You would be wrong. For one, Symfony2 has a concept of sub-requests, which
+means virtual requests can be fired against the app at which point the request
+changes. More on how the framework deals with this later.</p>
+
+<p>Another use case for multiple requests per service is when you move certain
+services to command-line based workers running in separate processes on
+separate machines. You may want to re-use the same service instance to handle
+many requests in a long-running worker script.</p>
+
+<p>The request should not be a service. Something is off here.</p>
+
+<h2>Scopes</h2>
+
+<p>There&#39;s two approaches for dealing with stateful services. One of them that
+the service container provides is scopes. Any service that depends on the
+request service must be in the request scope.</p>
+
+<p>If service <code>C</code> depends on <code>B</code>, which depends on <code>A</code>, which depends on
+<code>request</code>, then all three of those must be scoped to the request.</p>
+
+<p><center>
+    <img src="/img/dic/req_scope.png" alt="Request Scope">
+</center></p>
+
+<p>For each HTTP request, the request scope is entered. These scopes can be
+nested, so if you have a sub-request (or several nested sub-requests), you
+keep stacking request scopes.</p>
+
+<p>When a sub-request enters a new request scope, all the existing request scoped
+services are stashed away. If responding to that sub-request depends on any of
+those request scoped services, they will be re-created with the sub-request as
+an argument.</p>
+
+<p>As soon as the sub-request is complete, the previously stashed services are
+restored, and the parent request continues.</p>
+
+<p>As you can see, scopes lead to a lot of complexity. This is a mess.</p>
+
+<h2>Mutable services</h2>
+
+<p>Last week a pull request titled <a href="https://github.com/symfony/symfony/pull/7007">Synchronized
+Services</a> was merged into the
+2.3 branch of Symfony2. It introduces a new way of updating existing request
+references without stashing them. The container calls <code>setRequest</code> on services
+whenever the request scope changes.</p>
+
+<p>This is even worse than scopes. Scopes at least kept some control over
+stateful services. With this change they become completely mutable which makes
+it impossible to know the state of the service at a given point in time.</p>
+
+<p>While this is mostly related to the <code>request</code> service, there are other faux
+services that are infected as well. For example the request context, which
+simply gets re-populated (mutated in place) by the RouterListener for every
+request.</p>
+
+<p>Make it stop!</p>
+
+<p><center>
+    <img src="/img/dic/dic_destroy.png" alt="DIC destruction">
+</center></p>
+
+<h2>Event Listeners</h2>
+
+<p>If we aren&#39;t supposed to pass the request at construction time, we&#39;re going to
+need a better way of passing the request around.</p>
+
+<p>So how do services get access to the request in a clean way? The request is
+available at runtime only. The most obvious way to give services access to it
+is simply by passing it to the service from the controller.</p>
+
+<p>A very basic example:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">class BlogController</span>
+<span class="x">{</span>
+<span class="x">    private $negotiator;</span>
+
+<span class="x">    function __construct(ContentNegotiator $negotiator)</span>
+<span class="x">    {</span>
+<span class="x">        $this-&gt;negotiator = $negotiator;</span>
+<span class="x">    }</span>
+
+<span class="x">    function viewPostAction(Request $request)</span>
+<span class="x">    {</span>
+<span class="x">        $contentType = $this-&gt;negotiator-&gt;getTypeFromRequest($request);</span>
+
+<span class="x">        ...</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>The controller gets access to the request, so it is able to pass it as an
+argument to any service that needs it.</p>
+
+<p>That&#39;s rather tedious though. And that is most likely one of the reasons why
+scopes were introduced in the first place. The user should not have to care
+about passing things all over the place.</p>
+
+<p>In many cases the problem can be solved by using event listeners:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">class ContentNegotiationListener</span>
+<span class="x">{</span>
+<span class="x">    private $negotiator;</span>
+
+<span class="x">    function __construct(ContentNegotiator $negotiator)</span>
+<span class="x">    {</span>
+<span class="x">        $this-&gt;negotiator = $negotiator;</span>
+<span class="x">    }</span>
+
+<span class="x">    function onKernelRequest($event)</span>
+<span class="x">    {</span>
+<span class="x">        $request = $event-&gt;getRequest();</span>
+
+<span class="x">        $contentType = $this-&gt;negotiator-&gt;getTypeFromRequest($request);</span>
+<span class="x">        $request-&gt;attributes-&gt;set(&#39;contentType&#39;, $contentType);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+
+<span class="x">class BlogController</span>
+<span class="x">{</span>
+<span class="x">    function viewPostAction($contentType)</span>
+<span class="x">    {</span>
+<span class="x">        // OMG magic!</span>
+<span class="x">        ...</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Event listeners allow you to compose small pieces of request-specific work in
+a decoupled manner. Whenever you need to do something for multiple controllers
+based on some information contained in the request, this is usually a good
+approach.</p>
+
+<p>However, this solution will not always work. Sometimes you just need more
+granularity. The controller needs to be able to specify specific actions to
+take.</p>
+
+<h2>Pipeline</h2>
+
+<p>I don&#39;t currently have a complete answer for how to manage the flow of
+information through the system at runtime. I do believe that there should be
+an equivalent of what the DIC does at construction time, but for the runtime
+during which you have access to contextual (e.g. request-specific)
+information.</p>
+
+<p>Most likely this runtime sub-system will be structured as a pipeline of
+functions or components. The output of one component will be passed to the
+next one, and there no longer needs to be an explicit relationship between
+them.</p>
+
+<p>The work the Patrick Ryan has done on
+<a href="https://github.com/CodeOtter/verband-framework">Verband</a>
+seems like a step in the right direction. Check it out.</p>
+
+<p><center>
+    <img src="/img/dic/pipeline.png" alt="Pipeline">
+</center></p>
+
+<p>I would love to hear some more ideas on how this pipeline could or should
+work!</p>
+
+<h2>Conclusion</h2>
+
+<p>Symfony2 is a very container-centric framework. That is mostly a good thing,
+as it allows for components to be independent from the framework itself.</p>
+
+<p>However, in addition to construction, the container is also responsible for
+managing state and context transitions. There is no clear separation between
+construction time and runtime, which leads to a lot of complexity.</p>
+
+<p>We should fix this.</p>
+
+<p>I&#39;m just going to leave you with a quote from Joe Armstrong:</p>
+
+<blockquote>
+<p>The crazy thing is we still are extremely bad at fitting things together -
+still the best way of fitting things together is the unix pipe</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">find ... | grep | uniq | sort | ...
+</code></pre></div>
+<p>and the <em>fundamental</em> reason for this is that components should be separated
+by well-defined protocols in a universal intermediate language.</p>
+
+<p>Fitting things together by message passing is the way to go - this is basis
+of OO programming - but done badly in most programming languages.</p>
+
+<p>If ALL applications in the world were interfaced by (say) sockets + lisp
+S-expressions and had the semantics of the protocol written down in a formal
+notation - then we could reuse things (more) easily.</p>
+
+<p><em>&mdash; Joe Armstrong, <a href="http://erlang.org/pipermail/erlang-questions/2013-January/071944.html">erlang-questions mailing
+list</a></em></p>
+</blockquote>
+
+<h2>Summary</h2>
+
+<ul>
+<li>Services should be stateless.</li>
+<li>Container scopes should be abolished.</li>
+<li>We need a way of managing runtime flow.</li>
+</ul>
+
+        ]]></content>
+    </entry>
+    
+    <entry>
+        <title>Composer Stability Flags</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2013/02/07/composer-stability-flags.html"/>
+        <id>https://igor.io/2013/02/07/composer-stability-flags.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <h1>Composer Stability Flags</h1>
+
+<p>The most common issue coming up in composer support at the moment is confusion
+about how stability is determined.</p>
+
+<p>Usually it is a variant of this case:</p>
+
+<blockquote>
+<p>When I require package A:dev-master, which depends on B:dev-master, composer
+tells me that package B was not found.</p>
+</blockquote>
+
+<h2>Root package</h2>
+
+<p>The root package is the main <code>composer.json</code> file. It is the one in the same
+directory that you run <code>composer install</code> in. Many of the fields in
+<code>composer.json</code> are <em>root-only</em>, which means that they only have an effect if
+they are specified in the root package.</p>
+
+<p>The root package is a context. Let&#39;s say you are depending on a package <em>A</em>.
+In the directory of your own package, your package is the root package. If you
+<code>cd</code> into the directory of <em>A</em>, then <em>A</em> is the root package.</p>
+
+<p>Stability is determined by the root package, and the root package only. Let
+that sink in for a moment, and don&#39;t ever forget it.</p>
+
+<p>Composer puts the decision of how stable your dependencies are in the hands of
+the user. As a user, you decide if you want to use dev, beta or stable
+releases.</p>
+
+<h2>minimum-stability</h2>
+
+<p>The basis of this decision is the <em>minimum-stability</em> field in the root
+package. It&#39;s a <em>root-only</em> field. It defines a default value for stability
+flags and acts as a lower bound.</p>
+
+<p><center>
+    <img src="/img/composer/minimum-stability.png" alt="minimum-stability">
+</center></p>
+
+<p>It&#39;s a ruler that you can pull down. By default only shows &quot;stable&quot;, but you
+can pull down and reveal the lower stability flags.</p>
+
+<p><em>minimum-stability</em> defines the default stability flag for all constraints.</p>
+
+<h2>Stability resolution</h2>
+
+<p>So let&#39;s think of a scenario where the root package requires package <em>A:dev-
+master</em>, which in turn requires <em>B:dev-master</em>.</p>
+
+<p><center>
+    <img src="/img/composer/scenario-1.png" alt="scenario-1">
+</center></p>
+
+<p>The root package looks like this:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;require&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;A&quot;</span><span class="p">:</span> <span class="s2">&quot;dev-master&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Composer will follow these steps:</p>
+
+<ul>
+<li><p>Determine <code>minimum-stability</code>: In this case the field is not defined, so it
+is set to the default value, which is &quot;stable&quot;.</p></li>
+<li><p>It sees that <em>A</em> has a constraint for version <code>dev-master</code>. Due to the
+<code>dev-</code> prefix, this is known to be a dev version, and dev versions have
+&quot;dev&quot; stability. Because this constraint for a dev version is defined in
+the root package, it implicitly gets the <code>@dev</code> stability flag.</p></li>
+<li><p>Since <em>A</em> has a constraint of <code>A:dev-master@dev</code>, this version matches and
+composer follows the link. It sees that <em>A</em> has a dependency on <em>B</em> with a
+constraint of <code>dev-master</code>. This has a <code>dev-</code> prefix, so it has a stability
+of &quot;dev&quot;.</p></li>
+</ul>
+
+<p>However, since the constraint is defined in package <em>A</em> and not the root
+  package, it does not implicitly get the <code>@dev</code> stability flag. Instead it
+  inherits the <code>minimum-stability</code> which is &quot;stable&quot;. So the resolved
+  constraint is <code>B:dev-master@stable</code>.</p>
+
+<p>At this point it will fail, because <code>B:dev-master@stable</code> does not resolve to
+anything. It will tell you that it cannot find a package <em>B</em> within the
+stability range you provided.</p>
+
+<p>One way to fix the problem would be to just lower your <code>minimum-stability</code>
+down to &quot;dev&quot;. But that&#39;s usually a really bad idea, because it applies to all
+constraints and as a result you will get unstable versions of <em>all</em> packages.</p>
+
+<p>So please, don&#39;t do that.</p>
+
+<h2>Stability flags</h2>
+
+<p>Instead, use stability flags.</p>
+
+<p>A flag is defined as part of a version constraint. Since stability is
+determined by the root package only, flags are also <em>root-only</em>. Flags defined
+in dependent packages are simply ignored.</p>
+
+<p>You can use flags to whitelist specific unstable packages. In this case I want
+to whitelist <em>B</em>. Here is how you do that:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;require&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;A&quot;</span><span class="p">:</span> <span class="s2">&quot;dev-master&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;B&quot;</span><span class="p">:</span> <span class="s2">&quot;@dev&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Note that I did not define an actual version in the root package. This means
+that the root package does not care which version of <em>B</em> is installed, it
+delegates that decision to <em>A</em>, which has a more specific constraint.</p>
+
+<p>The benefit is that if <em>A</em> decides to change its dependency on <em>B</em> from
+<code>dev-master</code> to <code>~1.0</code> or anything else, the root package will not need any
+changes.</p>
+
+<h2>Silex example</h2>
+
+<p>To get a better idea of how this works in practice, let&#39;s look at an example
+involving silex.</p>
+
+<p>At the time of this writing there is no stable version of silex, which means
+in order to install it, you need to add a <code>@dev</code> flag:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;require&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;silex/silex&quot;</span><span class="p">:</span> <span class="s2">&quot;1.0.*@dev&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Silex only has a <code>1.0.x-dev</code> version, which is the dev version of the <code>1.0</code>
+branch.</p>
+
+<p>All of the dependencies of silex have stable releases. Which means by default
+you will get <code>v2.1.7</code> of a number of symfony components and <code>v1.0.1</code> of
+pimple.</p>
+
+<p>If you wanted to try the <code>v2.2.0-RC1</code> version of those symfony components that
+was released a few days ago, you could whitelist them like this:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;require&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;silex/silex&quot;</span><span class="p">:</span> <span class="s2">&quot;1.0.*@dev&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;symfony/event-dispatcher&quot;</span><span class="p">:</span> <span class="s2">&quot;@RC&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;symfony/http-foundation&quot;</span><span class="p">:</span> <span class="s2">&quot;@RC&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;symfony/http-kernel&quot;</span><span class="p">:</span> <span class="s2">&quot;@RC&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;symfony/routing&quot;</span><span class="p">:</span> <span class="s2">&quot;@RC&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Since specifying all of those versions is kind of tedious, you could lower the
+<code>minimum-stability</code>. In this case that is okay, because it is not installing
+unstable packages that you do not want.</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;minimum-stability&quot;</span><span class="p">:</span> <span class="s2">&quot;RC&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;require&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;silex/silex&quot;</span><span class="p">:</span> <span class="s2">&quot;1.0.*@dev&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2>prefer-stable</h2>
+
+<p>Some time after this post was written, composer got a new <code>prefer-stable</code>
+feature.</p>
+
+<p>If you don&#39;t want to figure out the stability of your deps, you can just use
+the <a href="http://getcomposer.org/doc/04-schema.md#prefer-stable"><code>prefer-stable</code></a>
+field in your root package. Composer will try to figure out the most stable
+deps it can.</p>
+
+<p>This is quite convenient and often will get you something good enough. But I
+would still encourage you to think more about which stability you really want,
+and declaring it explicitly. You may be trading convenience for control.</p>
+
+<h2>Conclusion</h2>
+
+<p>Hopefully this gives you a better understanding of how composer determines
+stability and how you can use stability flags to get those unstable versions.</p>
+
+<p>Remember though: Most likely the reason why you need those stability flags is
+because the maintainers of your dependencies did not tag stable releases. You
+should go and annoy them <em>right now</em> so they add branch-aliases and tag
+releases. And as soon as they do, you can nuke those stability flags and be
+happy again.</p>
+
+<p>See also: <a href="/2013/01/07/composer-versioning.html">Composer Version Constraints</a>.</p>
+
+        ]]></content>
+    </entry>
+    
+    <entry>
+        <title>Value of HttpFoundation</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2013/02/03/http-foundation-value.html"/>
+        <id>https://igor.io/2013/02/03/http-foundation-value.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <h1>Value of HttpFoundation</h1>
+
+<p>In the previous post I talked about why most HTTP abstractions for PHP failed
+to gain adoption and how Symfony2 HttpFoundation is different:</p>
+
+<blockquote>
+<ul>
+<li>It is part of a popular framework, giving it wide adoption.</li>
+<li>It stays close to HTTP, trying to rebuild the request from the environment.</li>
+</ul>
+</blockquote>
+
+<p>I would like to elaborate on this a bit and clarify some points, because I
+think there is a lot of value hidden inside the abstraction that many people
+are not aware of.</p>
+
+<p>Instead of focusing on the HttpKernel and the outer shell, I want to look at
+how adopting the HttpFoundation forces huge changes on the design of the app
+itself.</p>
+
+<h2>Superglobals</h2>
+
+<p>So let&#39;s start off by comparing HttpFoundation to PHP&#39;s native way of doing
+things: Superglobals.</p>
+
+<p><center>
+    <img src="/img/superglobal.png" alt="Evil Superglobal">
+</center></p>
+
+<p>Most of the time, PHP developers just use <code>$_GET</code>, <code>$_POST</code> and <code>$_COOKIE</code>.
+And maybe on rare occasions some keys from <code>$_SERVER</code>. Most of them do not
+even properly understand HTTP, and they get away with it because they manage
+to get shit done using their subset of web knowledge.</p>
+
+<p>But there has been a strive for professionalism in the PHP community recently.
+More frameworks are making HTTP explicit and empowering their users to take
+full advantage of headers, status codes, caching, etc.</p>
+
+<p>The main problem that the superglobals bring with them is the fact that they
+are by definition accessible from anywhere. This global state leads to code
+that is unpredictable and hard to test and re-use.</p>
+
+<p>The way that HttpFoundation addresses this issue is by making all access to
+request variables explicit and tied to the request object. If you want to
+fetch a query string variable, instead of using <code>$_GET</code>:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$_GET[&#39;foo&#39;]</span>
+</code></pre></div>
+<p>You now retrieve it from the request:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$request-&gt;query-&gt;get(&#39;foo&#39;)</span>
+</code></pre></div>
+<p>The consequence of this change is that any code accessing request variables
+must use <code>$request</code> and therefore must have access to it. That means that you
+are forced to pass the request object around which in turn lets you see
+exactly where it is being used.</p>
+
+<p>Knowing is half the battle. Once you know a certain function or object has a
+dependency on the request, you can easily move that dependency out and pass in
+the required values as arguments directly, leading to lower coupling.</p>
+
+<p>By eliminating global state, you can establish clear boundaries.</p>
+
+<h2>Request and response are values</h2>
+
+<p>If you think about it, protocol messages are values. They&#39;re pure data. As
+such, they are (or should be) immutable.</p>
+
+<p>The object-oriented representation of an immutable value is a value object.
+You cannot change an existing value object, but you can create a new one with
+your changes applied.</p>
+
+<p>HttpFoundation&#39;s <code>Request</code> and <code>Response</code> were not designed to be immutable,
+but they come surprisingly close (e.g. <code>Request::duplicate()</code>). And even if
+they technically aren&#39;t, it helps to think about these objects as value
+objects, because it clarifies their role in the system.</p>
+
+<p>They hold the value of what came from the wire and what will go onto the wire.</p>
+
+<p>In case you are wondering about huge request and response bodies and how a
+value object can possibly represent a stream of partial values, this could
+be solved quite easily using iterators, which would provide those values
+incrementally. As a matter of fact, that&#39;s exactly what Rack does.</p>
+
+<h2>HttpKernel is a function</h2>
+
+<p>To look at those messages in the context of an application, the kernel is a
+<em>function</em> that converts requests to responses.</p>
+
+<p><center>
+    <img src="/img/http_kernel_function.png" alt="HttpKernel as a function">
+</center></p>
+
+<p>And this pattern repeats itself inside the kernel like a fractal. The default
+HttpKernel implementation delegates the response creation to controllers,
+which guess what? Are just functions (PHP callables) from request to response.</p>
+
+<p>HttpFoundation brings functional programming to the HTTP abstraction layer.</p>
+
+<p>And that&#39;s a Good Thing™.</p>
+
+<p>It&#39;s an extremely simple concept that leads to a clean functional design which
+is easy to test and makes it easy to define a boundary between HTTP and your
+application.</p>
+
+<h2>Conclusion</h2>
+
+<p>The request and response objects from HttpFoundation do not give you much new
+functionality over what PHP itself already provides. They do give you much
+better APIs though, which goes an extremely long way if you are a professional
+HTTP snob.</p>
+
+<p>The main benefit however is that you get an obvious way to isolate yourself
+from HTTP. This not only allows that code to run in a CLI or testing context,
+but avoids side effects, making it less likely to randomly explode in your
+face.</p>
+
+<h2>Summary</h2>
+
+<p>Here&#39;s why you should care about HttpFoundation:</p>
+
+<ul>
+<li>It eliminates PHP superglobals.</li>
+<li>It provides you with (conceptual) value objects and nice APIs.</li>
+<li>It enables functional super powers!</li>
+</ul>
+
+        ]]></content>
+    </entry>
+    
+    <entry>
+        <title>HttpKernel middlewares</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2013/02/02/http-kernel-middlewares.html"/>
+        <id>https://igor.io/2013/02/02/http-kernel-middlewares.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <h1>HttpKernel middlewares</h1>
+
+<h2>A brief history of language-specific HTTP interfaces</h2>
+
+<ul>
+<li>1997: <a href="http://jcp.org/en/jsr/detail?id=53">Java Servlet</a></li>
+<li>2003: <a href="http://www.python.org/dev/peps/pep-0333/">Python WSGI</a></li>
+<li>2007: <a href="http://rack.rubyforge.org/doc/SPEC.html">Ruby Rack</a></li>
+<li>2009: <a href="http://search.cpan.org/%7Emiyagawa/PSGI-1.101/PSGI.pod">Perl PSGI</a></li>
+<li>2011: Symfony2 HttpKernelInterface</li>
+</ul>
+
+<h2>Rack as an interface</h2>
+
+<p>From the aforementioned interfaces, I&#39;m most familiar with Rack. And in fact,
+Rack seems the closest to what Symfony2 brings to the PHP world.</p>
+
+<p>So what is Rack all about? Here&#39;s a basic hello world from <a href="http://chneukirchen.org/blog/archive/2007/02/introducing-rack.html">Introducing
+Rack</a>:</p>
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="nc">HelloWorld</span>
+  <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+    <span class="o">[</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;text/plain&quot;</span><span class="p">},</span> <span class="o">[</span><span class="s2">&quot;Hello world!&quot;</span><span class="o">]]</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div>
+<p>First and foremost, it is a specification. A spec that defines how a webserver
+interacts with a Ruby application. It defines three major components:</p>
+
+<ul>
+<li><p><strong>Environment:</strong> Environment variables representing the HTTP request. Mostly
+taken from CGI, but has additional Rack-specific variables.</p></li>
+<li><p><strong>Response:</strong> The response format. It is an array with three elements: The
+status code, a hash of headers and a list of strings for the body.</p></li>
+<li><p><strong>Application:</strong> An app is an object with a <code>call</code> method. The input argument
+is an env hash, the return value a response array.</p></li>
+</ul>
+
+<p>By defining these things, it achieves interop between webservers and
+applications. Any web framework that conforms to the specification can be
+served by any rack-capable web server.</p>
+
+<p>For a language that was not built for the web specifically, this can be quite
+a big deal. By providing such an abstraction inside of the language, it
+becomes possible to support many different protocols like CGI, FCGI or HTTP
+directly.</p>
+
+<blockquote>
+<p>PHP does not care. Because PHP has this abstraction built into the engine at
+a lower level. It&#39;s called SAPI (Server API), and it translates between a
+backend like CGI or FCGI and the script level CGI interface used by user
+code.</p>
+</blockquote>
+
+<h2>Rack as a stack of middlewares</h2>
+
+<p>Rack has two sides. The interface spec is what you see from the outside.
+However, the project also distributes a <code>rack</code> gem. In case you&#39;re not
+familiar with gems, gems are Ruby packages.</p>
+
+<p>This gem gives you classes for request and response, which wrap around the
+low-level data structures and give you an object-oriented interface to access
+specific information.</p>
+
+<p>In addition to that, the gem ships with a set of general-purpose Rack apps
+which act as decorators. That means they all follow this pattern:</p>
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="nc">EmptyDecorator</span>
+  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+    <span class="vi">@app</span> <span class="o">=</span> <span class="n">app</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+    <span class="vi">@app</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div>
+<p>The beauty of this is that you get to run custom code before and after the app
+runs, and you get to change the request and response values. Without modifying
+the app code at all!</p>
+
+<p>This also means that you can stack these <em>middlewares</em> to extend an app. And
+since constructing a nested object graph is tedious, Rack ships with
+<code>Rack::Builder</code>, which allows you to express this in a more natural way:</p>
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">builder</span> <span class="o">=</span> <span class="no">Rack</span><span class="o">::</span><span class="no">Builder</span><span class="o">.</span><span class="n">new</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">use</span> <span class="no">Rack</span><span class="o">::</span><span class="no">CommonLogger</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">use</span> <span class="no">Rack</span><span class="o">::</span><span class="no">ShowExceptions</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+</code></pre></div>
+<p>What this does behind the scenes is:</p>
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">app</span> <span class="o">=</span> <span class="no">Rack</span><span class="o">::</span><span class="no">CommonLogger</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="no">Rack</span><span class="o">::</span><span class="no">ShowExceptions</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">app</span><span class="p">))</span>
+</code></pre></div>
+<p>Don&#39;t tell anyone, but these are applied design patterns in Ruby.</p>
+
+<h2>Returning to PHP land</h2>
+
+<p>Here is what Rack does: It provides a language-level abstraction for HTTP.</p>
+
+<p>There have been many attempts to port this idea to PHP, and all of them have
+failed, because PHP already has such an abstraction. It&#39;s all in those
+superglobals everybody is so scared of: <code>$_GET</code>, <code>$_POST</code> and <code>$_SERVER</code>.</p>
+
+<p>The problem is that it is actually a flawed representation of HTTP. The
+distinction between <code>GET</code> and <code>POST</code> variables is quite arbitrary. The
+protocol only knows about query string parameters and a request body. And of
+course, there are more than just two request methods. But PHP does not reflect
+that.</p>
+
+<p>And that&#39;s where <em>HttpFoundation</em> from Symfony2 comes in.</p>
+
+<p>HttpFoundation models HTTP messages as PHP objects. What makes it different
+from other attempts to bring Rack to PHP is:</p>
+
+<ul>
+<li>It is part of a popular framework, giving it wide adoption.</li>
+<li>It stays close to HTTP, trying to rebuild the request from the environment.</li>
+</ul>
+
+<p>All that hard work that the web-server did, translating HTTP to CGI? Let&#39;s
+destroy that by going from CGI back to HTTP. That pretty much sums up
+HttpFoundation.</p>
+
+<h2>HttpKernelInterface</h2>
+
+<p>It&#39;s quite amazing that something with such a ridiculously long name is
+supposed to be the rack of PHP:
+<code>Symfony\Component\HttpKernel\<wbr>HttpKernelInterface</code>.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">interface HttpKernelInterface</span>
+<span class="x">{</span>
+<span class="x">    /** @return Response */</span>
+<span class="x">    public function handle(Request $request, $type = self::MASTER_REQUEST, $catch = true);</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>What&#39;s different about <code>HttpKernelInterface</code> (compared to Rack) is that it
+does not have a specification. Also, it is coupled to a framework, which means
+it will never become as universally accepted as Rack.</p>
+
+<p>At least not until the PHP community agrees that they need a better CGI.</p>
+
+<p>So what exactly is the point of this interface? It&#39;s not about interacting
+with web servers. It&#39;s about interacting with fake HTTP clients. The kernel
+represents an HTTP server. You can simulate HTTP requests against your app.</p>
+
+<p>This is nice for functional testing. But not really necessary, as you can do
+that <a href="https://github.com/igorw/CgiHttpKernel">through CGI</a> just fine. Another
+thing you can do is HTTP reverse proxy caching. That&#39;s cute, but there is
+really no reason not to use Varnish.</p>
+
+<p><small><small>Except for restrictive shared hosting environments which can go to
+hell.</small></small></p>
+
+<p>So, let&#39;s make the <code>HttpKernelInterface</code> more useful. That fancy middleware
+crap that Rack has, we can do that in PHP as well!</p>
+
+<h2>Logger middleware</h2>
+
+<p>Logging requests is something that should be done by your webserver.</p>
+
+<p>In certain cases there may however some benefit to doing it inside the
+application. You have more context, which means you can gather metrics about a
+specific user being logged in, which may not be as easily obtainable at the
+webserver level.</p>
+
+<p>By applying the decorator pattern, you can create an <code>HttpKernel</code> that wraps
+another one, delegates <code>handle</code> calls, and does some logging.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Middleware;</span>
+
+<span class="x">use Psr\Log\LoggerInterface;</span>
+<span class="x">use Symfony\Component\HttpFoundation\Request;</span>
+<span class="x">use Symfony\Component\HttpKernel\HttpKernelInterface;</span>
+
+<span class="x">class Logger implements HttpKernelInterface</span>
+<span class="x">{</span>
+<span class="x">    private $app;</span>
+<span class="x">    private $logger;</span>
+
+<span class="x">    public function __construct(HttpKernelInterface $app, LoggerInterface $logger)</span>
+<span class="x">    {</span>
+<span class="x">        $this-&gt;app = $app;</span>
+<span class="x">        $this-&gt;logger = $logger;</span>
+<span class="x">    }</span>
+
+<span class="x">    public function handle(Request $request, $type = HttpKernelInterface::MASTER_REQUEST, $catch = true)</span>
+<span class="x">    {</span>
+<span class="x">        $response = $this-&gt;app-&gt;handle($request, $type, $catch);</span>
+
+<span class="x">        $this-&gt;logger-&gt;info(sprintf(&#39;%s &quot;%s %s %s&quot; %d&#39;,</span>
+<span class="x">            $request-&gt;getHost(),</span>
+<span class="x">            $request-&gt;getMethod(),</span>
+<span class="x">            $request-&gt;getRequestUri(),</span>
+<span class="x">            $request-&gt;server-&gt;get(&#39;SERVER_PROTOCOL&#39;),</span>
+<span class="x">            $response-&gt;getStatusCode()));</span>
+
+<span class="x">        return $response;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>This logger middleware can be composed with <em>any</em> <code>HttpKernel</code> and with <em>any</em>
+PSR-3 logger. For example, you could now use it with Silex and Monolog:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$app = new Silex\Application();</span>
+
+<span class="x">$app-&gt;get(&#39;/&#39;, function () {</span>
+<span class="x">    return &quot;Hello World!\n&quot;;</span>
+<span class="x">});</span>
+
+<span class="x">$app = new Igorw\Middleware\Logger(</span>
+<span class="x">    $app,</span>
+<span class="x">    new Monolog\Logger(&#39;app&#39;)</span>
+<span class="x">);</span>
+
+<span class="x">$request = Request::createFromGlobals();</span>
+<span class="x">$app-&gt;handle($request)-&gt;send();</span>
+</code></pre></div>
+<p>Instead of Silex you could use a Symfony2 app. Or a Laravel4 app. Or you can
+make your own <code>HttpKernel</code>, like this one:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Middleware;</span>
+
+<span class="x">use Symfony\Component\HttpFoundation\Request;</span>
+<span class="x">use Symfony\Component\HttpKernel\HttpKernelInterface;</span>
+
+<span class="x">class CallableHttpKernel implements HttpKernelInterface</span>
+<span class="x">{</span>
+<span class="x">    private $callable;</span>
+
+<span class="x">    public function __construct(callable $callable)</span>
+<span class="x">    {</span>
+<span class="x">        $this-&gt;callable = $callable;</span>
+<span class="x">    }</span>
+
+<span class="x">    public function handle(Request $request, $type = HttpKernelInterface::MASTER_REQUEST, $catch = true)</span>
+<span class="x">    {</span>
+<span class="x">        return call_user_func($this-&gt;callable, $request, $type, $catch);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Which can be used by passing a callable to the constructor:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$app = new CallableHttpKernel(function (Request $request) {</span>
+<span class="x">    return new Response(&quot;Hello World!\n&quot;);</span>
+<span class="x">});</span>
+</code></pre></div>
+<p>As long as you have an object that implements the <code>HttpKernelInterface</code>, it
+can be used with this logger middleware.</p>
+
+<h2>Stack</h2>
+
+<p>While doing HTTP reverse proxy caching in PHP is pointless (as previously
+mentioned), the <code>HttpKernel</code> component ships with a middleware for doing just
+that. So let&#39;s try it.</p>
+
+<p>And in fact the <code>HttpCache</code> middleware is already using the decorator pattern,
+so it composes extremely well with what we already have:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">use Igorw\Middleware\CallableKernel;</span>
+<span class="x">use Symfony\Component\HttpKernel\HttpCache\Store;</span>
+
+<span class="x">$app = new CallableHttpKernel(function (Request $request) {</span>
+<span class="x">    return (new Response(&quot;Hello World!\n&quot;))</span>
+<span class="x">        -&gt;setCache([&#39;s_maxage&#39; =&gt; 20]);</span>
+<span class="x">});</span>
+
+<span class="x">$app = new Igorw\Middleware\Logger(</span>
+<span class="x">    new Symfony\Component\HttpKernel\HttpCache\HttpCache(</span>
+<span class="x">        $app,</span>
+<span class="x">        new Store(__DIR__.&#39;/cache&#39;)</span>
+<span class="x">    ),</span>
+<span class="x">    new Monolog\Logger(&#39;app&#39;)</span>
+<span class="x">);</span>
+</code></pre></div>
+<p>Once you start nesting those middlewares, the construction logic starts to
+become a bit hairy though. Wouldn&#39;t it be great to have an API that looks more
+like pushing middlewares onto a stack?</p>
+
+<p>Ideally something like this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$stack = (new Stack())</span>
+<span class="x">    -&gt;push(&#39;Igorw\Middleware\Logger&#39;, new Monolog\Logger(&#39;app&#39;))</span>
+<span class="x">    -&gt;push(&#39;Symfony\Component\HttpKernel\HttpCache\HttpCache&#39;, new Store(__DIR__.&#39;/cache&#39;));</span>
+
+<span class="x">$app = $stack-&gt;resolve($app);</span>
+</code></pre></div>
+<p>Well, that&#39;s easy enough to implement. <a href="https://github.com/igorw/middleware/blob/master/src/Igorw/Middleware/Stack.php">Take a look at the <code>Stack</code> on
+GitHub</a>.</p>
+
+<p>So now we have a stack of middlewares. Calling <code>resolve</code> will construct the
+object graph and return the outermost <code>HttpKernel</code>.</p>
+
+<p>It exposes a nice API and easily allows adding new middlewares to the stack.
+It is the rough equivalent of
+<a href="http://rack.rubyforge.org/doc/Rack/Builder.html">Rack::Builder</a>, but not
+quite as feature-rich. One missing feature in particular is prefix matching.
+I&#39;ll leave that for another day.</p>
+
+<h2>Better use cases</h2>
+
+<p>So far I&#39;ve only shown you logging and caching, which are both not very sexy
+or even useful. You can go way beyond those boring cases though!</p>
+
+<p><strong>Authentication</strong>. For Rack there are quite a few authentication middlewares
+which can be used with <em>any</em> Rack app. You configure them, they sit in front
+of the app and do their thing. A middleware can provide contextual information
+to the application by adding it to the environment. The <code>HttpKernel</code>
+equivalent would be <code>$request-&gt;attributes</code>.</p>
+
+<p><strong>Debug toolbar</strong>. Currently the Symfony2 debug toolbar only works with the
+Symfony2 framework. There is ongoing work to decouple it. It could be done as
+a request listener. An interesting alternative would be to implement it as a
+middleware, so that it can be composed with other kernels.</p>
+
+<p><strong>Injected routes</strong>, for example an admin panel. You can simply inject routes
+that are prepended to the application.</p>
+
+<p><strong>Signed cookies</strong>. The middleware would just validate all incoming cookies,
+removing invalid ones and sign outgoing ones as trusted. That prevents the
+cookies from being tampered with.</p>
+
+<p><strong>Asset management</strong>. It could be an integration with Assetic, but operating
+at the HTTP level. It would rewrite the HTML source to the minified versions.</p>
+
+<p><strong>Force SSL</strong> seems common enough, it could also be implemented as a
+middleware. If the redirect depends on app-specific context it makes sense to
+not have the webserver do it.</p>
+
+<p><strong>Error handling</strong>. If all of the inside <code>handle</code> calls are done with <code>$catch</code>
+set to <code>false</code>, it should be possible to handle all of those errors at the
+middleware layer. Obviously this needs some tweaking, since certain errors are
+app-specific and need special care.</p>
+
+<p><strong>Sessions</strong>. Initialization of the session itself can be implemented as a
+middleware, that way it is available to all other middlewares as opposed to
+only the application itself.</p>
+
+<p>There&#39;s so many more things you can do. Middlewares thrive at adding
+application functionality in a decoupled manner.</p>
+
+<p>We should consider implementing more things at this level. It makes the
+<code>HttpKernelInterface</code> more attractive for frameworks to adopt. And more
+importantly: it makes it actually useful.</p>
+
+<h2>A word of warning</h2>
+
+<p>Middlewares are neat, but they are not suited for everything.</p>
+
+<p>For one, infrastructure tasks like logging and caching really belong into your
+webserver. Re-implementing that in PHP is just going to slow things down. Use
+Varnish.</p>
+
+<p>The more important point however is that <em>middlewares are coupled to HTTP</em>.
+They should only be considered an integration point. The specific pieces of
+functionality they provide should still be moved to separate classes so that
+they can be properly unit tested and perhaps re-used.</p>
+
+<h2>Summary</h2>
+
+<ul>
+<li><code>HttpKernel</code> is almost like Rack.</li>
+<li>The PHP community should start stacking middlewares.</li>
+<li>Composition is king!</li>
+</ul>
+
+<blockquote>
+<p>All of the code from this post <a href="https://github.com/igorw/middleware">is available on
+GitHub</a>.</p>
+</blockquote>
+
+<p><center style="margin-top: 25px;">
+    <big>
+        <a  href="/2013/05/23/introducing-stack.html"
+            style="background: white; border: 2px #d14 solid; border-radius: 5px; padding: 10px; color: #d14;">
+            Update: Introducing Stack
+        </a>
+    </big>
+</center></p>
+
+        ]]></content>
+    </entry>
+    
+    <entry>
+        <title>Autoload path depth insanity</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2013/01/23/autoload-insanity.html"/>
+        <id>https://igor.io/2013/01/23/autoload-insanity.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <h1>Autoload path depth insanity</h1>
+
+<p>In the recent 2-3 years there have been a few major developments in the PHP
+community. I&#39;d say the most notable ones were the creation of the PSR-0
+autoloading standard and the dawn of the composer dependency manager.</p>
+
+<p>The PSR proposals were originally based on the common ground between the
+projects pushing them. Today they dominate the way modern PHP libraries are
+written. I think it&#39;s time to stop and think for a minute about how we really
+want our code and libraries to look like.</p>
+
+<h2>Update (2014-01-04)</h2>
+
+<p>The situation has improved. We now have a
+<a href="https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-4-autoloader.md">PSR-4 specification</a>
+and support for this new standard
+<a href="http://seld.be/notes/psr-4-autoloading-support-in-composer">in composer</a>.</p>
+
+<p>Thanks to everyone who made this happen.</p>
+
+<h2>Autoloading</h2>
+
+<p>While I believe that the creation of
+<a href="https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-0.md">PSR-0</a>
+was extremely important for PHP, I no longer care about autoloading. The reason
+is simple: Composer made it irrelevant.</p>
+
+<p>With composer you get autoloading for free, but even better: you now have a
+standard tool that can generate a classmap instantly. Classmap is one of the
+most performant ways to lazy-load classes and it does not even care which
+files they are in.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">src
+└── Symfony
+    └── Component
+        └── HttpKernel
+            └── HttpKernelInterface.php
+
+library
+└── Zend
+    └── Mvc
+        └── Application.php
+</code></pre></div>
+<p>If you take a look at these two examples, they have something in common. Both
+of them contain a useless level of directory nesting. Both Symfony&#39;s <code>src</code> and
+Zend Framework&#39;s <code>library</code> directory contain only one single directory -- as
+such it could be eliminated.</p>
+
+<p>Of course PSR-0 would allow removing the <code>src</code> directory and having <code>Symfony</code>
+in the root directly (and some projects do that) but that&#39;s not ideal, as you
+lose the ability of having a consistent directory for the source code.</p>
+
+<h2>Who will win the pointless nesting competition?</h2>
+
+<p>Here is an example from a library I wrote, called Ilias:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">ilias
+├── src
+│   └── Igorw
+│       └── Ilias
+│           └── Program.php
+└── tests
+    └── Igorw
+        └── Tests
+            └── Ilias
+                └── ProgramTest.php
+</code></pre></div>
+<p>Unlike the previously mentioned projects, this library is not part of a big
+organization. As you can see, there are not one, but <em>two</em> levels of
+unnecessary directory nesting. The name of my project is <code>igorw/ilias</code>, why
+would I care to repeat this information <em>yet again</em> in the directory
+structure?</p>
+
+<p>And it gets even worse when look at the unit tests. The amount of nesting is
+reaching a level of ridiculousness that exceeds the amount of ignorance a
+human being can generate. I hate to say it, but this is annoying.</p>
+
+<blockquote>
+<p>Side note: Fortunately PHPUnit does not care about autoloading, so I can
+shorten the test filename to <code>tests/unit/ProgramTest.php</code>, which also allows
+for a clean separation between unit, integration and functional tests.
+<a href="https://twitter.com/__edorian">Thank you, Volker</a>.</p>
+</blockquote>
+
+<p>But instead of just complaining, I have a few suggestions that would greatly
+improve the way we deal with autoloading today, by introducing a sane amount
+of brevity.</p>
+
+<p>It would allow the path to be shortened to <code>src/Program.php</code>.</p>
+
+<h2>Proposal</h2>
+
+<p>Based on <a href="https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-0.md">PSR-0</a>,
+these are the changes I would make:</p>
+
+<ul>
+<li><p>An autoloader must take a <code>class_prefix</code> option which defaults to <code>null</code>.</p></li>
+<li><p>If the <code>class_prefix</code> is not <code>null</code> and the <abbr title="Fully-qualified
+class name">FQCN</abbr> begins with the <code>class_prefix</code>, the <em>transformed
+class prefix</em> must be stripped from the beginning filesystem path.</p></li>
+<li><p>The <em>transformed class prefix</em> is calculated by applying the following
+transformations to it:</p>
+
+<ul>
+<li>If the last character is not a namespace separator, append one.</li>
+<li>Convert each namespace separator to a <code>DIRECTORY_SEPARATOR</code>.</li>
+</ul></li>
+</ul>
+
+<p>Here are some examples:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">class_prefix: Symfony
+class name:   Symfony\Component\HttpKernel\HttpKernelInterface
+filename:             Component/HttpKernel/HttpKernelInterface.php
+
+class_prefix: Zend
+class name:   Zend\Mvc\Application
+filename:          Mvc/Application.php
+
+class_prefix: Igorw\Ilias
+class name:   Igorw\Ilias\Program
+filename:                 Program.php
+</code></pre></div>
+<p>The composer configuration could be something along these lines, the class
+prefix can be used both matching and for constructing the directory prefix:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;autoload&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;psr-n&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&quot;Igorw\\Ilias&quot;</span><span class="p">:</span> <span class="s2">&quot;src&quot;</span> <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Based on the feedback I receive I may write up a more detailed spec and a
+proof-of-concept implementation for submission to the PHP
+<a href="http://www.php-fig.org/">FIG</a>.</p>
+
+<p><center style="margin-top: 25px;">
+    <big>
+        <a  href="https://gist.github.com/4600419"
+            style="background: white; border: 2px #d14 solid; border-radius: 5px; padding: 10px; color: #d14;">
+            Please leave a comment!
+        </a>
+    </big>
+</center></p>
+
+<h2>FAQ</h2>
+
+<ul>
+<li><strong>Why not just use classmap?</strong></li>
+</ul>
+
+<p>The main annoyance with classmap autoloading is that you must manually re-
+  dump it every time a new class is added, which makes it unsuited for a
+  development environment.</p>
+
+<p>Sure, you could hack together an autoloader that re-generates the class map
+  if a class is not found, but I would strongly favour a clean solution over
+  such hacks.</p>
+
+<ul>
+<li><strong>Doesn&#39;t composer&#39;s <code>target-dir</code> fix this?</strong></li>
+</ul>
+
+<p>Unfortunately, no. The <code>target-dir</code> is prepended to the entire package name,
+  which means you will need to put code in your top level directory.</p>
+
+<p>What I am asking for is <code>src/{$prefix}/Name.php</code>, which is not possible with
+  <code>target-dir</code>.</p>
+
+<ul>
+<li><strong>But Symfony2 bundles do not have nesting and work fine.</strong></li>
+</ul>
+
+<p>See the composer <code>target-dir</code> question above.</p>
+
+<ul>
+<li><strong>Just use an IDE, it will solve all your problems!</strong></li>
+</ul>
+
+<p>An IDE cannot fix the filesystem structure of a software project.</p>
+
+<ul>
+<li><strong>What if the FIG does not like it?</strong></li>
+</ul>
+
+<p>Depending on the feedback I receive, I may consider submitting a patch for
+  composer anyway.</p>
+
+<ul>
+<li><strong>&lt;insert random insult here&gt;</strong></li>
+</ul>
+
+<p>Thanks man, I appreciate it.</p>
+
+<h2>Obligatory XKCD</h2>
+
+<p><center>
+    <img src="https://imgs.xkcd.com/comics/standards.png" alt="XKCD: Standards">
+</center></p>
+
+        ]]></content>
+    </entry>
+    
+    <entry>
+        <title>Composer Version Constraints</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2013/01/07/composer-versioning.html"/>
+        <id>https://igor.io/2013/01/07/composer-versioning.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <h1>Composer Version Constraints</h1>
+
+<blockquote>
+<p>If you don&#39;t know what composer is, <a href="http://getcomposer.org/">go to the composer
+homepage</a> and start reading.</p>
+</blockquote>
+
+<p>I&#39;ve seen many people struggle with the constraints they put on their composer
+dependencies. Hopefully this post will shed some light on why certain things
+are bad, and how to avoid them. I will start out with the worst possible
+scenario, then improve the constraints step by step.</p>
+
+<h2>The almighty asterisk</h2>
+
+<p>Composer has a dependency resolver, so it should be able to automagically
+figure out what I need, right? Wrong.</p>
+
+<p>Declaring a version constraint of <code>*</code> is probably one of the worst things you
+can do. Because you have absolutely no control over what you will get. It
+could be <em>any</em> version that matches your <code>minimum-stability</code> and other
+constraints.</p>
+
+<p>Essentially you are playing a game of russian dependency roulette with
+composer, eventually you will get hurt by it. And then you will probably blame
+the tool for failing you so badly.</p>
+
+<p>If you&#39;re going to be careless, please at least depend on the latest
+development version, which is usually labeled as <code>dev-master</code>.</p>
+
+<h2>Hard-coded branch names</h2>
+
+<p>So now you are using <code>dev-master</code>. The problem is that <code>dev-master</code> is a
+moving target. For one, you will always get unstable packages (unstable in
+terms of composer&#39;s stability flags). But the bigger problem is that the
+meaning of <code>dev-master</code> can change at any time.</p>
+
+<p>Let&#39;s say that it represents the latest <code>1.0</code> development version. At some
+point the author of said library starts working on the <code>1.1</code> release, so they
+branch off a <code>1.0</code> branch, and <code>dev-master</code> becomes the latest <code>1.1</code> dev
+version.</p>
+
+<p>Unless you are tracking the development of that library very closely, you will
+not notice this until you run <code>composer update</code>, it blows up in your face, and
+ruins your day. That&#39;s why referencing branch names directly is not a
+sustainable solution. Luckily composer is here to help with branch aliases.</p>
+
+<h2>Branch alias</h2>
+
+<p>A branch alias is a property that package maintainers can put into their
+<code>composer.json</code>, that allows branch names to be mapped to versions. For branch
+names like <code>1.0</code>, <code>2.1</code>, etc. this is not necessary -- composer already
+handles those.</p>
+
+<p>But with a branch name like <code>master</code> which produces a version named
+<code>dev-master</code>, you should definitely alias it. The composer docs have <a href="http://getcomposer.org/doc/articles/aliases.md">a
+great article on aliasing</a>
+that explains how branch aliases can be defined:</p>
+<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
+    <span class="nt">&quot;extra&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;branch-alias&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">&quot;dev-master&quot;</span><span class="p">:</span> <span class="s2">&quot;1.0.x-dev&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>This maps the <code>dev-master</code> version to a <code>1.0.x-dev</code> alias. Which essentially
+means that you can require the package with a <code>1.0.*@dev</code> constraint. The nice
+thing about this is that the meaning of <code>1.0</code> is defined and will not change.
+It will also make switching to stable versions easier.</p>
+
+<p>The caveat of branch aliases is that package maintainers need to put them in.
+If you are using a library that does not have a branch alias, send them a pull
+request adding the above <code>extra</code> section to their <code>composer.json</code>.</p>
+
+<h2>Stable releases</h2>
+
+<p>The <code>1.0.*@dev</code> constraint is already quite good. The problem however is that
+there is no stable version yet. This is not problematic for your code - apart
+from the fact that you are running an unstable version that the maintainer has
+not committed to.</p>
+
+<p>But if you have other people depending on your package, then your users either
+need to explicitly require your dependency with a <code>@dev</code> flag to allow
+composer to install the unstable version, or worse yet lower their
+<code>minimum-stability</code>, which means they get unstable versions of <em>everything</em>.</p>
+
+<p>To avoid juggling around dev versions it&#39;s much better to just tag releases.
+If you are using a library that has no tagged releases, go and annoy the
+maintainer until they tag. Do it, now!</p>
+
+<blockquote>
+<p>We as the composer community need to take responsibility. We need to tag
+releases, we should maintain CHANGELOGs. It&#39;s hard to do, but makes a huge
+difference for the ecosystem as a whole. Remember to tag responsibly and
+<a href="http://semver.org/">semantically</a>.</p>
+</blockquote>
+
+<p>When you have a stable release, you can remove the <code>@dev</code> flag and change your
+constraint to <code>1.0.*</code>.</p>
+
+<h2>Next Significant Release</h2>
+
+<p>If the dependency that you&#39;re using is adhering to the rules of semantic
+versioning and keeps strict BC for point releases, then you can improve the
+constraint even more.</p>
+
+<p>Right now with <code>1.0.*</code> there will be some potential compatibility problems as
+soon as there is a <code>1.1</code> release. If you depend on <code>1.0</code> but somebody else
+needs a feature from <code>1.1</code> (which is backwards-compatible, remember?), they
+cannot install it. So you need to resort to do something like <code>1.*</code>.</p>
+
+<p>That&#39;s great, except when you start depending on features from <code>1.1</code>, then you
+can no longer use it, as it will still match the <code>1.0</code> version. Which has
+missing features.</p>
+
+<p>So then you do <code>&gt;=1.1,&lt;2.0</code>, but that&#39;s annoying. Enter the tilde operator,
+which allows you to express this in a clean way: <code>~1.1</code>. This means &quot;any <code>1.*</code>
+of <code>1.1</code> or above&quot;. And there you have it, encourage semantic versioning to
+take advantage of the tilde and maximise inter-package compatibility.</p>
+
+<h2>TLDR</h2>
+
+<ul>
+<li>Use <a href="http://getcomposer.org/doc/articles/aliases.md#branch-alias"><code>branch-alias</code></a>.</li>
+<li>Tag releases, do it responsibly and <a href="http://semver.org/">semantically</a>.</li>
+<li>Use the <a href="http://getcomposer.org/doc/01-basic-usage.md#package-versions">tilde operator</a>.</li>
+</ul>
+
+        ]]></content>
+    </entry>
+    
+    <entry>
+        <title>Scaling a Silex code base</title>
+        <link rel="alternate" type="text/html" href="https://igor.io/2012/11/09/scaling-silex.html"/>
+        <id>https://igor.io/2012/11/09/scaling-silex.html</id>
+        <updated>2015-04-06T16:35:01+02:00</updated>
+        <author>
+            <name>Igor Wiedler</name>
+            <email>igor@igor.io</email>
+        </author>
+        <content type="html" xml:lang="en"><![CDATA[
+            <h1>Scaling a Silex code base</h1>
+
+<blockquote>
+<p><strong>Warning:</strong> This blog post is <em>not</em> about clouds, it&#39;s about people.</p>
+</blockquote>
+
+<p>One common misconception about <a href="http://silex.sensiolabs.org">silex</a> and
+microframeworks in general is that they are only suited for small, simple
+apps, APIs and prototyping. Of course, those use cases are the main selling
+point, but they are by no means the limit of what is possible.</p>
+
+<h2>Creating the mess</h2>
+
+<p>The first experience with silex will most likely be something like this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$app-&gt;get(&#39;/&#39;, function () {</span>
+<span class="x">    return &#39;Hi&#39;;</span>
+<span class="x">});</span>
+</code></pre></div>
+<p>Cute. Now fast-forward a few months, and it is looking more like this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$app-&gt;get(&#39;/&#39;, function (Request $request) use ($app) {</span>
+<span class="x">    $products = $app[&#39;db&#39;]-&gt;fetchAll(&#39;SELECT * FROM products&#39;);</span>
+
+<span class="x">    $suggestions = [];</span>
+<span class="x">    $token = $app[&#39;security&#39;]-&gt;getToken();</span>
+<span class="x">    if (null !== $token) {</span>
+<span class="x">        $user = $token-&gt;getUser();</span>
+
+<span class="x">        $friends = $app[&#39;db&#39;]-&gt;fetchAll(&#39;SELECT u.* FROM users u JOIN purchases pu ON pu.user_id = user.id WHERE pu.product_id IN (SELECT product_id FROM purchases WHERE user_id = ?)&#39;, [(int) $user-&gt;getId()]);</span>
+
+<span class="x">        $sql = sprintf(&#39;SELECT p.* FROM products p JOIN purchases pu ON pu.product_id = p.id WHERE pu.user_id IN (%s)&#39;, implode(&#39;,&#39;, array_map(function ($friend) { return (int) $friend[&#39;id&#39;]; }, $friends)));</span>
+<span class="x">        $suggestions = $app[&#39;db&#39;]-&gt;fetchAll($sql);</span>
+<span class="x">    }</span>
+
+<span class="x">    $app[&#39;predis&#39;]-&gt;incr(&#39;pageviews&#39;);</span>
+<span class="x">    $app[&#39;predis&#39;]-&gt;incr(&#39;pageviews:index&#39;);</span>
+
+<span class="x">    $data = [</span>
+<span class="x">        &#39;products&#39;      =&gt; $products,</span>
+<span class="x">        &#39;suggestions&#39;   =&gt; $suggestions,</span>
+<span class="x">    ];</span>
+
+<span class="x">    if (&#39;application/json&#39; === $request-&gt;headers-&gt;get(&#39;Accept&#39;)) {</span>
+<span class="x">        return $app-&gt;json($data);</span>
+<span class="x">    }</span>
+
+<span class="x">    return $app[&#39;twig&#39;]-&gt;render(&#39;index.html.twig&#39;, $data);</span>
+<span class="x">});</span>
+</code></pre></div>
+<p>This is a vastly simplified example, but you get the idea. Imagine 20-30 of
+these inline controllers. Even if you extract everything into services, you
+will still be left with a single file of bloat. I am going to suggest
+something revolutionary: <em>Move your code into classes!</em></p>
+
+<p>One of the more common complaints that I hear is that silex forces you to put
+all of your code into a single file. Now to be fair, controllers as classes
+are only very briefly mentioned in the documentation. There are two pull
+requests that will document the feature properly and appropriately.</p>
+
+<blockquote>
+<p>Note: I am going to assume that these classes will be loaded via PSR-0
+autoloading, managed by composer.</p>
+</blockquote>
+
+<h2>Controllers in classes</h2>
+
+<p>This is how it is done:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Shop\Controller;</span>
+
+<span class="x">use Silex\Application;</span>
+<span class="x">use Symfony\Component\HttpFoundation\Request;</span>
+
+<span class="x">class ShopController</span>
+<span class="x">{</span>
+<span class="x">    public function indexAction(Request $request, Application $app)</span>
+<span class="x">    {</span>
+<span class="x">        ...</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>And now the routing looks like this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$app-&gt;get(&#39;/&#39;,          &#39;Igorw\Shop\Controller\ShopController::indexAction&#39;);</span>
+<span class="x">$app-&gt;match(&#39;/login&#39;,   &#39;Igorw\Shop\Controller\ShopController::loginAction&#39;);</span>
+<span class="x">$app-&gt;get(&#39;/product&#39;,   &#39;Igorw\Shop\Controller\ShopController::productAction&#39;);</span>
+</code></pre></div>
+<p>And if those class names are too damn long, relax. You can easily write a
+function to shorten them. Did you know that it is okay to write functions in
+PHP? It is!</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function controller($shortName)</span>
+<span class="x">{</span>
+<span class="x">    list($shortClass, $shortMethod) = explode(&#39;/&#39;, $shortName, 2);</span>
+
+<span class="x">    return sprintf(&#39;Igorw\Shop\Controller\%sController::%sAction&#39;, ucfirst($shortClass), $shortMethod);</span>
+<span class="x">}</span>
+
+<span class="x">$app-&gt;get(&#39;/&#39;, controller(&#39;shop/index&#39;));</span>
+<span class="x">$app-&gt;match(&#39;/login&#39;, controller(&#39;shop/login&#39;));</span>
+<span class="x">$app-&gt;get(&#39;/product&#39;, controller(&#39;shop/product&#39;));</span>
+</code></pre></div>
+<p>It is worth noting that although we specified the controller name as a string
+here, it will <em>not</em> call the method statically (unless it is a static method),
+but in fact create an instance of the class on demand. This ensures that the
+class is lazy-loaded and only instantiated if that particular route matches.</p>
+
+<p>This is done using the Symfony2 <code>ControllerResolver</code>, which can be extended to
+resolve the provided controller name to a <code>callable</code> dynamically, allowing the
+short notation of controller names to be supported directly, without the call
+to <code>controller()</code>.</p>
+
+<h2>Logic in services</h2>
+
+<p>Since the controllers are still huge, you will most likely want to rip them
+apart and extract as much code as possible into separate classes, which can
+then be defined as services on the pimple container.</p>
+
+<p>Here is an example of what you <em>might</em> end up with:</p>
+
+<ul>
+<li><code>Igorw\Store\Storage\ProductRepository</code></li>
+<li><code>Igorw\Store\Storage\StatsCollector</code></li>
+<li><code>Igorw\Store\View\ProductJsonView</code></li>
+<li><code>Igorw\Store\View\ProductTwigView</code></li>
+<li><code>Igorw\Store\Suggestor</code></li>
+</ul>
+
+<p>And a more manageable controller:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">class ShopController</span>
+<span class="x">{</span>
+<span class="x">    public function indexAction(Request $request, Application $app)</span>
+<span class="x">    {</span>
+<span class="x">        $products = $app[&#39;repo.product&#39;]-&gt;findAll();</span>
+
+<span class="x">        $user = $this-&gt;getUser($app);</span>
+<span class="x">        $suggestions = ($user) ? $app[&#39;suggestor&#39;]-&gt;suggestProducts($user) : [];</span>
+
+<span class="x">        $app[&#39;stats&#39;]-&gt;pageview(&#39;index&#39;);</span>
+
+<span class="x">        $data = [</span>
+<span class="x">            &#39;products&#39;      =&gt; $products,</span>
+<span class="x">            &#39;suggestions&#39;   =&gt; $suggestions,</span>
+<span class="x">        ];</span>
+
+<span class="x">        return $app[&#39;view_factory&#39;]</span>
+<span class="x">            -&gt;create($request, $data)</span>
+<span class="x">            -&gt;render();</span>
+<span class="x">    }</span>
+
+<span class="x">    private function getUser(Application $app)</span>
+<span class="x">    {</span>
+<span class="x">        $token = $app[&#39;security&#39;]-&gt;getToken();</span>
+<span class="x">        return $token ? $token-&gt;getUser() : null;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Is there room for improvement? Certainly. The next step would be to define the
+controllers themselves as services by extending the <code>ControllerResolver</code>. This
+would eliminate the dependency that the controllers have on the service
+locator, turning it into a real service container. I will not cover that here.
+If you are interested, <a href="http://davedevelopment.co.uk/2012/10/03/Silex-Controllers-As-Services.html">read this excellent blog post by Dave
+Marshall</a>.</p>
+
+<h2>Taming the beast</h2>
+
+<p>As you hopefully see now, silex is able to grow organically as your code base
+grows. It does not impose the lack of structure on you. The
+<code>Silex\Application</code> class has two main responsibilities (yes, it&#39;s an SRP
+violation, deal with it):</p>
+
+<ul>
+<li>Silex is a <strong>Service Container</strong>* based on pimple.</li>
+<li>Silex is a <strong>Route Builder</strong>.</li>
+</ul>
+
+<p>* In most cases it is used as a service locator, not a service container.</p>
+
+<p>The route builder responsibility becomes visible instantly once you move the
+controllers into separate classes. At that point it is basically a PHP API for
+a <code>routing.yml</code> file with some extra bells and whistles.</p>
+
+<p>The technical issues of growing a silex code base have been addressed. They&#39;re
+gone. In this case we ended up with something that is quite similar to
+full-stack Symfony2 in many ways. It is not using any static configuration
+files, and is lacking many of the features that the full-stack framework has.
+The main difference is something completely different though.</p>
+
+<h2>Silex vs Symfony2</h2>
+
+<p>I have had many people ask where to draw the line between Symfony2 and silex.
+How many routes can I have in silex before it becomes unbearable? How many
+services can I have before I should consider switching from silex to Symfony2?
+And for a long time I didn&#39;t have a good answer to this question. One of the
+best answers I have heard <a href="https://twitter.com/mrf/status/251731315739729920">is from Dustin
+Whittle</a>:</p>
+
+<blockquote>
+<p>Use silex if you are comfortable with making all of your own architecture
+decisions and full stack Symfony2 if not.</p>
+</blockquote>
+
+<p>To put it in other words, it really does not matter how large your app is, how
+many controllers and routes and services you have. On a technical level you
+can find solutions for that. The challenge you will actually face is people.</p>
+
+<p>The main difference between silex and Symfony2 full-stack is that Symfony2 is
+a framework. Silex is not a framework, it&#39;s a library which provides a service
+container, a route builder and some glue to build your own framework with.</p>
+
+<p>The distinction that I want to make here is that Symfony2 has conventions. It
+has a pre-defined directory structure, config files, front controllers. All of
+these conventions are very explicit and will most likely be consistent across
+most Symfony2 projects.</p>
+
+<p>There are many good reasons to have these kind of conventions. The main one is
+human scale. When you have many developers working on the same code base, you
+want the code to remain consistent. At the same time, it is growing, so it may
+need to be re-structured. With Symfony2 you already know how to structure it.
+With silex you need to figure it out on your own.</p>
+
+<h2>Summary</h2>
+
+<ul>
+<li>Silex does not prevent you from structuring your code.</li>
+<li>It requires you to make your own architecture decisions.</li>
+<li>Human scale is the only limiting factor.</li>
+</ul>
+
+        ]]></content>
+    </entry>
+    
+</feed>

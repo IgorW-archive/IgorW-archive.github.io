@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Value of HttpFoundation</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Feb 3rd, 2013
+    </div>
+
+    <div class="body">
+        <h1>Value of HttpFoundation</h1>
+
+<p>In the previous post I talked about why most HTTP abstractions for PHP failed
+to gain adoption and how Symfony2 HttpFoundation is different:</p>
+
+<blockquote>
+<ul>
+<li>It is part of a popular framework, giving it wide adoption.</li>
+<li>It stays close to HTTP, trying to rebuild the request from the environment.</li>
+</ul>
+</blockquote>
+
+<p>I would like to elaborate on this a bit and clarify some points, because I
+think there is a lot of value hidden inside the abstraction that many people
+are not aware of.</p>
+
+<p>Instead of focusing on the HttpKernel and the outer shell, I want to look at
+how adopting the HttpFoundation forces huge changes on the design of the app
+itself.</p>
+
+<h2>Superglobals</h2>
+
+<p>So let&#39;s start off by comparing HttpFoundation to PHP&#39;s native way of doing
+things: Superglobals.</p>
+
+<p><center>
+    <img src="/img/superglobal.png" alt="Evil Superglobal">
+</center></p>
+
+<p>Most of the time, PHP developers just use <code>$_GET</code>, <code>$_POST</code> and <code>$_COOKIE</code>.
+And maybe on rare occasions some keys from <code>$_SERVER</code>. Most of them do not
+even properly understand HTTP, and they get away with it because they manage
+to get shit done using their subset of web knowledge.</p>
+
+<p>But there has been a strive for professionalism in the PHP community recently.
+More frameworks are making HTTP explicit and empowering their users to take
+full advantage of headers, status codes, caching, etc.</p>
+
+<p>The main problem that the superglobals bring with them is the fact that they
+are by definition accessible from anywhere. This global state leads to code
+that is unpredictable and hard to test and re-use.</p>
+
+<p>The way that HttpFoundation addresses this issue is by making all access to
+request variables explicit and tied to the request object. If you want to
+fetch a query string variable, instead of using <code>$_GET</code>:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$_GET[&#39;foo&#39;]</span>
+</code></pre></div>
+<p>You now retrieve it from the request:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$request-&gt;query-&gt;get(&#39;foo&#39;)</span>
+</code></pre></div>
+<p>The consequence of this change is that any code accessing request variables
+must use <code>$request</code> and therefore must have access to it. That means that you
+are forced to pass the request object around which in turn lets you see
+exactly where it is being used.</p>
+
+<p>Knowing is half the battle. Once you know a certain function or object has a
+dependency on the request, you can easily move that dependency out and pass in
+the required values as arguments directly, leading to lower coupling.</p>
+
+<p>By eliminating global state, you can establish clear boundaries.</p>
+
+<h2>Request and response are values</h2>
+
+<p>If you think about it, protocol messages are values. They&#39;re pure data. As
+such, they are (or should be) immutable.</p>
+
+<p>The object-oriented representation of an immutable value is a value object.
+You cannot change an existing value object, but you can create a new one with
+your changes applied.</p>
+
+<p>HttpFoundation&#39;s <code>Request</code> and <code>Response</code> were not designed to be immutable,
+but they come surprisingly close (e.g. <code>Request::duplicate()</code>). And even if
+they technically aren&#39;t, it helps to think about these objects as value
+objects, because it clarifies their role in the system.</p>
+
+<p>They hold the value of what came from the wire and what will go onto the wire.</p>
+
+<p>In case you are wondering about huge request and response bodies and how a
+value object can possibly represent a stream of partial values, this could
+be solved quite easily using iterators, which would provide those values
+incrementally. As a matter of fact, that&#39;s exactly what Rack does.</p>
+
+<h2>HttpKernel is a function</h2>
+
+<p>To look at those messages in the context of an application, the kernel is a
+<em>function</em> that converts requests to responses.</p>
+
+<p><center>
+    <img src="/img/http_kernel_function.png" alt="HttpKernel as a function">
+</center></p>
+
+<p>And this pattern repeats itself inside the kernel like a fractal. The default
+HttpKernel implementation delegates the response creation to controllers,
+which guess what? Are just functions (PHP callables) from request to response.</p>
+
+<p>HttpFoundation brings functional programming to the HTTP abstraction layer.</p>
+
+<p>And that&#39;s a Good Thing™.</p>
+
+<p>It&#39;s an extremely simple concept that leads to a clean functional design which
+is easy to test and makes it easy to define a boundary between HTTP and your
+application.</p>
+
+<h2>Conclusion</h2>
+
+<p>The request and response objects from HttpFoundation do not give you much new
+functionality over what PHP itself already provides. They do give you much
+better APIs though, which goes an extremely long way if you are a professional
+HTTP snob.</p>
+
+<p>The main benefit however is that you get an obvious way to isolate yourself
+from HTTP. This not only allows that code to run in a CLI or testing context,
+but avoids side effects, making it less likely to randomly explode in your
+face.</p>
+
+<h2>Summary</h2>
+
+<p>Here&#39;s why you should care about HttpFoundation:</p>
+
+<ul>
+<li>It eliminates PHP superglobals.</li>
+<li>It provides you with (conceptual) value objects and nice APIs.</li>
+<li>It enables functional super powers!</li>
+</ul>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

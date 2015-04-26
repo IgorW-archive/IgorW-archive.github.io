@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: RPN calculator</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 2nd, 2013
+    </div>
+
+    <div class="body">
+        <style>
+.formula {
+    text-align: center;
+    margin-top: 25px;
+    margin-bottom: 45px;
+    font-size: 6em;
+}
+.formula2 {
+    text-align: center;
+    margin-top: 20px;
+    margin-bottom: 30px;
+    font-size: 3em;
+}
+</style>
+
+<h1>Stack Machines: RPN calculator</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html"><strong>rpn-calculator</strong></a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<p>A very simple form of stack machine is a so-called RPN calculator. It is quite
+easy to understand and implement, and uses the same model that is used by most
+virtual machines. As such it&#39;s very useful to study such a device in order to
+learn more about how VMs and actual computers work.</p>
+
+<h2>Infix Notation</h2>
+
+<p>When describing mathematical formulae, it is common to use infix notation.
+Infix means that the operator is <em>in between</em> the two operands.</p>
+
+<p>For example:</p>
+
+<div class="formula">1 + 1</div>
+
+<p>This notation has also been adopted by most popular programming
+languages<sup><a id="ft-1-src"></a><a href="#ft-1">1</a></sup>.</p>
+
+<p>One of the downsides of infix notation is that certain expressions such as
+<code>1 + 2 * 3</code> are ambiguous and require special precedence rules and bracketing
+to be interpreted correctly.</p>
+
+<p>Two alternate notations exist that do not have this limitation. <em>Polish
+notation</em>, which is known as <em>prefix notation</em> and &mdash; you guessed it
+&mdash; <em>Reverse polish notation</em>.</p>
+
+<h2>Reverse Polish Notation</h2>
+
+<p><strong>RPN</strong> stands for reverse polish notation. Another name for it is <em>postfix
+notation</em>. In simple terms, the operator comes after the operands.</p>
+
+<p>For example:</p>
+
+<div class="formula">1 1 +</div>
+
+<p>This may look backwards at first<sup><a id="ft-2-src"></a><a
+href="#ft-2">2</a></sup>, but it is so much easier to implement a calculator
+for it.</p>
+
+<p>The previous example of <code>1 + 2 * 3</code> can be unambiguously represented as:</p>
+
+<div class="formula2">2 3 * 1 +</div>
+
+<p>The arity of <code>+</code> is fixed at 2: it takes exactly two arguments.</p>
+
+<h2>Stack</h2>
+
+<p>It may not be obvious, but the algorithm for processing this stream of numbers
+and operations is based on a stack. There are two calculations happening. The
+first is <code>2 3 *</code> which produces a result.</p>
+
+<p>But that result is not just thrown away, it is stored on a stack, allowing the
+next operation to use that data, which is exactly what the <code>... 1 +</code> does.</p>
+
+<ul>
+<li>A number just means <em>push this number onto the stack</em>.</li>
+<li><code>+</code> means <em>pop 2 elements from the stack, add them, push the result back</em>.</li>
+<li><code>*</code> does the same as <code>+</code> but for multiplication.</li>
+</ul>
+
+<p>The symbols are <strong>instructions</strong>, the list above describes the <strong>instruction
+set</strong>.</p>
+
+<p>The following drawing illustrates how the instructions affect the stack, which
+values get pushed onto and which ones get popped off of the stack.</p>
+
+<p><center>
+    <img src="/img/stack-machine-rpn/rpn.png" alt="rpn instructions">
+</center></p>
+
+<hr>
+
+<p>This also means that you can stack up a few values before actually processing
+them.</p>
+
+<p>For example:</p>
+
+<div class="formula2">1 1 1 1 + + +</div>
+
+<p>Will first push the number <code>1</code> four times. The first <code>+</code> will pop two of them,
+add them and push the resulting <code>2</code>. The second <code>+</code> will pop that <code>2</code> and
+another of the <code>1</code>s, add them, push <code>3</code>. The final <code>+</code> pops the <code>3</code>, pops the
+<code>1</code>, also adds them and pushes the final result, a <code>4</code>.</p>
+
+<h2>Implementation</h2>
+
+<p>Now that we have the specs down, let&#39;s implement this RPN calculator. It takes
+a bunch of instructions, executes them, and returns what is on top of the
+stack: the result.</p>
+
+<p>Here it is, in all its glory<sup><a id="ft-3-src"></a><a
+href="#ft-3">3</a></sup>:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function execute(array $ops)</span>
+<span class="x">{</span>
+<span class="x">    $stack = new \SplStack();</span>
+
+<span class="x">    foreach ($ops as $op) {</span>
+<span class="x">        if (is_numeric($op)) {</span>
+<span class="x">            $stack-&gt;push((int) $op);</span>
+<span class="x">            continue;</span>
+<span class="x">        }</span>
+
+<span class="x">        switch ($op) {</span>
+<span class="x">            case &#39;+&#39;:</span>
+<span class="x">                $stack-&gt;push($stack-&gt;pop() + $stack-&gt;pop());</span>
+<span class="x">                break;</span>
+<span class="x">            case &#39;-&#39;:</span>
+<span class="x">                $n = $stack-&gt;pop();</span>
+<span class="x">                $stack-&gt;push($stack-&gt;pop() - $n);</span>
+<span class="x">                break;</span>
+<span class="x">            case &#39;*&#39;:</span>
+<span class="x">                $stack-&gt;push($stack-&gt;pop() * $stack-&gt;pop());</span>
+<span class="x">                break;</span>
+<span class="x">            case &#39;/&#39;:</span>
+<span class="x">                $n = $stack-&gt;pop();</span>
+<span class="x">                $stack-&gt;push($stack-&gt;pop() / $n);</span>
+<span class="x">                break;</span>
+<span class="x">            case &#39;%&#39;:</span>
+<span class="x">                $n = $stack-&gt;pop();</span>
+<span class="x">                $stack-&gt;push($stack-&gt;pop() % $n);</span>
+<span class="x">                break;</span>
+<span class="x">            default:</span>
+<span class="x">                throw new \InvalidArgumentException(sprintf(&#39;Invalid operation: %s&#39;, $op));</span>
+<span class="x">                break;</span>
+<span class="x">        }</span>
+<span class="x">    }</span>
+
+<span class="x">    return $stack-&gt;top();</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>As you can see, the implementation is trivial. It is simply a matter of
+looping over the instructions, pushing numbers onto the stack and switching on
+the individual instructions to do the right calculation.</p>
+
+<p>A quick test run:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$rpn = &#39;2 3 * 1 +&#39;;</span>
+<span class="x">$ops = explode(&#39; &#39;, $rpn);</span>
+<span class="x">var_dump(execute($ops));</span>
+</code></pre></div>
+<p>Confirms that it works! It returns the value <code>7</code> as expected.</p>
+
+<p>An RPN calculator is quite a trivial piece of software. And yet the mechanisms
+it uses emulate a subset of what an actual computer does.</p>
+
+<p>Since this stack machine has no means of random access storage and no
+conditional branching instructions, it is still limited in its computational
+power. It is comparable to a pushdown automaton.</p>
+
+<h2>Summary</h2>
+
+<ul>
+<li>RPN is kind of backwards.</li>
+<li>Implementing an RPN calculator is easy.</li>
+<li>Hey, look! It&#39;s a little computer!</li>
+</ul>
+
+<hr>
+
+<ol>
+<li><p><a id="ft-1"></a>There are some exceptions, including stack based languages
+such as <em>Forth</em>, <em>Factor</em> or <em>Gershwin</em>. <a id="ft-1" href="#ft-1-src">↩</a></p></li>
+<li><p><a id="ft-2"></a><a href="http://xkcd.com/645/">Mandatory XKCD</a>. <a id="ft-2"
+href="#ft-2-src">↩</a></p></li>
+<li><p><a id="ft-3"></a>This implementation is roughly based on the RPN calculator
+from <a href="http://cm.bell-labs.com/cm/cs/cbook/">The C Programming Language</a> by
+Brian W. Kernighan and Dennis M. Ritchie. <a id="ft-3"
+href="#ft-3-src">↩</a></p></li>
+</ol>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html"><strong>rpn-calculator</strong></a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

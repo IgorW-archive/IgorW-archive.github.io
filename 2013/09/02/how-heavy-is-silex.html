@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>How heavy is Silex?</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Sep 2nd, 2013
+    </div>
+
+    <div class="body">
+        <h1>How heavy is Silex?</h1>
+
+<p>Quite often silex has been described as heavy or bloated. It&#39;s time to put
+this myth to rest.</p>
+
+<p><center>
+    <img src="/img/omnomnom.png" alt="symfony component cookie monster">
+</center></p>
+
+<h2>Quotes</h2>
+
+<blockquote>
+<p>Silex: The world&#39;s largest microframework.</p>
+
+<p>Silex: All the bloat of Symfony but with only half the features.</p>
+
+<p>Silex is so big: It has more lines of code than your project.</p>
+</blockquote>
+
+<h2>Micro-framework</h2>
+
+<p>What an excellent buzzword! Let&#39;s face it, this is an overloaded and mostly
+nebulous term.</p>
+
+<p>I don&#39;t think it&#39;s possible to clearly define what it means. However, I want
+to give a definition of what it means in the context of silex. Silex is a
+route builder, a router, a DI container, based on Symfony2 components.</p>
+
+<p>But the real answer lies in what silex <em>doesn&#39;t</em> do. Unlike a framework, silex
+does not provide any conventions. That means that you are forced to architect
+your own code base. It gives you a lot of power and responsibility.</p>
+
+<p>So what does micro mean? Is it about lines of code? Amount of dependencies?
+No, it&#39;s not.</p>
+
+<p>While I agree that less lines of code and less dependencies are desirable,
+that is not the top priority. Micro means that silex exposes a minimal
+interface. It makes a minimal amount of decisions for you. Everything else
+follows from that principle.</p>
+
+<h2>Dependencies</h2>
+
+<p>So first of all, how many dependencies does silex have? As of right now,
+<strong>7</strong>.</p>
+
+<p>Here they are, in all of their glory:</p>
+
+<ul>
+<li>pimple/pimple</li>
+<li>psr/log</li>
+<li>symfony/debug</li>
+<li>symfony/event-dispatcher</li>
+<li>symfony/http-kernel</li>
+<li>symfony/http-foundation</li>
+<li>symfony/routing</li>
+</ul>
+
+<p>Each one of them does one specific thing. Each is reasonably small in size.</p>
+
+<p>Of course, silex could have implemented all of those features itself. But it
+would mean less re-use, less battle-tested libraries, less interoperability.</p>
+
+<p>To put this into perspective, the Symfony2 standard edition installs <strong>60</strong>
+packages, 41 of which are symfony components. The ZF2 skeleton installs all of
+the <strong>49</strong> components. Laravel4 ships with <strong>58</strong> packages, 28 of which are
+laravel components.</p>
+
+<p>The point of this exercise is not to bash other frameworks. It&#39;s just to show
+that I&#39;m not lying when I say silex has an add-what-you-need philosophy.</p>
+
+<h2>Number of classes, lines of code</h2>
+
+<p>Even though keeping lines of code down is not the primary goal of silex, we
+made sure not to include code that is not needed. So what exactly do you get
+when you use silex?</p>
+
+<p>I grabbed the fine code-measuring tool <code>cloc</code> ran some analysis. After
+removing tests, the entire code base (including deps) consists of <strong>16831
+NCLOC</strong> in <strong>280 classes</strong>. The whole tree (including tests) amounts to <strong>3.5
+MiB</strong>.</p>
+
+<p>However, during a standard request only a fraction of that code is actually
+loaded. The following <strong>50 classes</strong> are actually used:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">* Silex\Application
+* Silex\Controller
+* Silex\ControllerCollection
+* Silex\ControllerResolver
+* Silex\EventListener\ConverterListener
+* Silex\EventListener\LocaleListener
+* Silex\EventListener\MiddlewareListener
+* Silex\EventListener\StringToResponseListener
+* Silex\ExceptionHandler
+* Silex\LazyUrlMatcher
+* Silex\RedirectableUrlMatcher
+* Silex\Route
+* Symfony\Component\EventDispatcher\Event
+* Symfony\Component\EventDispatcher\EventDispatcher
+* Symfony\Component\EventDispatcher\EventDispatcherInterface
+* Symfony\Component\EventDispatcher\EventSubscriberInterface
+* Symfony\Component\HttpFoundation\FileBag
+* Symfony\Component\HttpFoundation\HeaderBag
+* Symfony\Component\HttpFoundation\ParameterBag
+* Symfony\Component\HttpFoundation\Request
+* Symfony\Component\HttpFoundation\Response
+* Symfony\Component\HttpFoundation\ResponseHeaderBag
+* Symfony\Component\HttpFoundation\ServerBag
+* Symfony\Component\HttpKernel\Controller\ControllerResolver
+* Symfony\Component\HttpKernel\Controller\ControllerResolverInterface
+* Symfony\Component\HttpKernel\Event\FilterControllerEvent
+* Symfony\Component\HttpKernel\Event\FilterResponseEvent
+* Symfony\Component\HttpKernel\Event\GetResponseEvent
+* Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent
+* Symfony\Component\HttpKernel\Event\KernelEvent
+* Symfony\Component\HttpKernel\Event\PostResponseEvent
+* Symfony\Component\HttpKernel\EventListener\LocaleListener
+* Symfony\Component\HttpKernel\EventListener\ResponseListener
+* Symfony\Component\HttpKernel\EventListener\RouterListener
+* Symfony\Component\HttpKernel\HttpKernel
+* Symfony\Component\HttpKernel\HttpKernelInterface
+* Symfony\Component\HttpKernel\KernelEvents
+* Symfony\Component\HttpKernel\TerminableInterface
+* Symfony\Component\Routing\CompiledRoute
+* Symfony\Component\Routing\Matcher\RedirectableUrlMatcher
+* Symfony\Component\Routing\Matcher\RedirectableUrlMatcherInterface
+* Symfony\Component\Routing\Matcher\UrlMatcher
+* Symfony\Component\Routing\Matcher\UrlMatcherInterface
+* Symfony\Component\Routing\RequestContext
+* Symfony\Component\Routing\RequestContextAwareInterface
+* Symfony\Component\Routing\Route
+* Symfony\Component\Routing\RouteCollection
+* Symfony\Component\Routing\RouteCompiler
+* Symfony\Component\Routing\RouteCompilerInterface
+</code></pre></div>
+<p>Those 50 classes have a total of <strong>4018 NCLOC</strong>.</p>
+
+<p>Is that more than something like slim, limonade or breeze? Yes. By a factor of
+2-4. Does that matter? I don&#39;t think so.</p>
+
+<p>It is still sufficiently small. I consider re-use, isolation and interop
+provided by silex better than in the other listed projects.</p>
+
+<h2>Minimal interface</h2>
+
+<p>For the most part you will only ever deal with the following types:</p>
+
+<ul>
+<li>Silex\Application</li>
+<li>Silex\Controller</li>
+<li>Silex\Route</li>
+<li>Symfony\Component\HttFoundation\Request</li>
+<li>Symfony\Component\HttFoundation\Response</li>
+<li>Pimple</li>
+</ul>
+
+<p>Learn them, and you can effectively use silex.</p>
+
+<h2>Summary</h2>
+
+<ul>
+<li>Minimal interface &gt; minimal lines of code.</li>
+<li>Silex is quite lightweight.</li>
+<li>The entire public API consists of 5 classes.</li>
+</ul>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

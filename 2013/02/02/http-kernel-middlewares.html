@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>HttpKernel middlewares</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Feb 2nd, 2013
+    </div>
+
+    <div class="body">
+        <h1>HttpKernel middlewares</h1>
+
+<h2>A brief history of language-specific HTTP interfaces</h2>
+
+<ul>
+<li>1997: <a href="http://jcp.org/en/jsr/detail?id=53">Java Servlet</a></li>
+<li>2003: <a href="http://www.python.org/dev/peps/pep-0333/">Python WSGI</a></li>
+<li>2007: <a href="http://rack.rubyforge.org/doc/SPEC.html">Ruby Rack</a></li>
+<li>2009: <a href="http://search.cpan.org/%7Emiyagawa/PSGI-1.101/PSGI.pod">Perl PSGI</a></li>
+<li>2011: Symfony2 HttpKernelInterface</li>
+</ul>
+
+<h2>Rack as an interface</h2>
+
+<p>From the aforementioned interfaces, I&#39;m most familiar with Rack. And in fact,
+Rack seems the closest to what Symfony2 brings to the PHP world.</p>
+
+<p>So what is Rack all about? Here&#39;s a basic hello world from <a href="http://chneukirchen.org/blog/archive/2007/02/introducing-rack.html">Introducing
+Rack</a>:</p>
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="nc">HelloWorld</span>
+  <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+    <span class="o">[</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;text/plain&quot;</span><span class="p">},</span> <span class="o">[</span><span class="s2">&quot;Hello world!&quot;</span><span class="o">]]</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div>
+<p>First and foremost, it is a specification. A spec that defines how a webserver
+interacts with a Ruby application. It defines three major components:</p>
+
+<ul>
+<li><p><strong>Environment:</strong> Environment variables representing the HTTP request. Mostly
+taken from CGI, but has additional Rack-specific variables.</p></li>
+<li><p><strong>Response:</strong> The response format. It is an array with three elements: The
+status code, a hash of headers and a list of strings for the body.</p></li>
+<li><p><strong>Application:</strong> An app is an object with a <code>call</code> method. The input argument
+is an env hash, the return value a response array.</p></li>
+</ul>
+
+<p>By defining these things, it achieves interop between webservers and
+applications. Any web framework that conforms to the specification can be
+served by any rack-capable web server.</p>
+
+<p>For a language that was not built for the web specifically, this can be quite
+a big deal. By providing such an abstraction inside of the language, it
+becomes possible to support many different protocols like CGI, FCGI or HTTP
+directly.</p>
+
+<blockquote>
+<p>PHP does not care. Because PHP has this abstraction built into the engine at
+a lower level. It&#39;s called SAPI (Server API), and it translates between a
+backend like CGI or FCGI and the script level CGI interface used by user
+code.</p>
+</blockquote>
+
+<h2>Rack as a stack of middlewares</h2>
+
+<p>Rack has two sides. The interface spec is what you see from the outside.
+However, the project also distributes a <code>rack</code> gem. In case you&#39;re not
+familiar with gems, gems are Ruby packages.</p>
+
+<p>This gem gives you classes for request and response, which wrap around the
+low-level data structures and give you an object-oriented interface to access
+specific information.</p>
+
+<p>In addition to that, the gem ships with a set of general-purpose Rack apps
+which act as decorators. That means they all follow this pattern:</p>
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="nc">EmptyDecorator</span>
+  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+    <span class="vi">@app</span> <span class="o">=</span> <span class="n">app</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+    <span class="vi">@app</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div>
+<p>The beauty of this is that you get to run custom code before and after the app
+runs, and you get to change the request and response values. Without modifying
+the app code at all!</p>
+
+<p>This also means that you can stack these <em>middlewares</em> to extend an app. And
+since constructing a nested object graph is tedious, Rack ships with
+<code>Rack::Builder</code>, which allows you to express this in a more natural way:</p>
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">builder</span> <span class="o">=</span> <span class="no">Rack</span><span class="o">::</span><span class="no">Builder</span><span class="o">.</span><span class="n">new</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">use</span> <span class="no">Rack</span><span class="o">::</span><span class="no">CommonLogger</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">use</span> <span class="no">Rack</span><span class="o">::</span><span class="no">ShowExceptions</span>
+<span class="n">builder</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+</code></pre></div>
+<p>What this does behind the scenes is:</p>
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">app</span> <span class="o">=</span> <span class="no">Rack</span><span class="o">::</span><span class="no">CommonLogger</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="no">Rack</span><span class="o">::</span><span class="no">ShowExceptions</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">app</span><span class="p">))</span>
+</code></pre></div>
+<p>Don&#39;t tell anyone, but these are applied design patterns in Ruby.</p>
+
+<h2>Returning to PHP land</h2>
+
+<p>Here is what Rack does: It provides a language-level abstraction for HTTP.</p>
+
+<p>There have been many attempts to port this idea to PHP, and all of them have
+failed, because PHP already has such an abstraction. It&#39;s all in those
+superglobals everybody is so scared of: <code>$_GET</code>, <code>$_POST</code> and <code>$_SERVER</code>.</p>
+
+<p>The problem is that it is actually a flawed representation of HTTP. The
+distinction between <code>GET</code> and <code>POST</code> variables is quite arbitrary. The
+protocol only knows about query string parameters and a request body. And of
+course, there are more than just two request methods. But PHP does not reflect
+that.</p>
+
+<p>And that&#39;s where <em>HttpFoundation</em> from Symfony2 comes in.</p>
+
+<p>HttpFoundation models HTTP messages as PHP objects. What makes it different
+from other attempts to bring Rack to PHP is:</p>
+
+<ul>
+<li>It is part of a popular framework, giving it wide adoption.</li>
+<li>It stays close to HTTP, trying to rebuild the request from the environment.</li>
+</ul>
+
+<p>All that hard work that the web-server did, translating HTTP to CGI? Let&#39;s
+destroy that by going from CGI back to HTTP. That pretty much sums up
+HttpFoundation.</p>
+
+<h2>HttpKernelInterface</h2>
+
+<p>It&#39;s quite amazing that something with such a ridiculously long name is
+supposed to be the rack of PHP:
+<code>Symfony\Component\HttpKernel\<wbr>HttpKernelInterface</code>.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">interface HttpKernelInterface</span>
+<span class="x">{</span>
+<span class="x">    /** @return Response */</span>
+<span class="x">    public function handle(Request $request, $type = self::MASTER_REQUEST, $catch = true);</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>What&#39;s different about <code>HttpKernelInterface</code> (compared to Rack) is that it
+does not have a specification. Also, it is coupled to a framework, which means
+it will never become as universally accepted as Rack.</p>
+
+<p>At least not until the PHP community agrees that they need a better CGI.</p>
+
+<p>So what exactly is the point of this interface? It&#39;s not about interacting
+with web servers. It&#39;s about interacting with fake HTTP clients. The kernel
+represents an HTTP server. You can simulate HTTP requests against your app.</p>
+
+<p>This is nice for functional testing. But not really necessary, as you can do
+that <a href="https://github.com/igorw/CgiHttpKernel">through CGI</a> just fine. Another
+thing you can do is HTTP reverse proxy caching. That&#39;s cute, but there is
+really no reason not to use Varnish.</p>
+
+<p><small><small>Except for restrictive shared hosting environments which can go to
+hell.</small></small></p>
+
+<p>So, let&#39;s make the <code>HttpKernelInterface</code> more useful. That fancy middleware
+crap that Rack has, we can do that in PHP as well!</p>
+
+<h2>Logger middleware</h2>
+
+<p>Logging requests is something that should be done by your webserver.</p>
+
+<p>In certain cases there may however some benefit to doing it inside the
+application. You have more context, which means you can gather metrics about a
+specific user being logged in, which may not be as easily obtainable at the
+webserver level.</p>
+
+<p>By applying the decorator pattern, you can create an <code>HttpKernel</code> that wraps
+another one, delegates <code>handle</code> calls, and does some logging.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Middleware;</span>
+
+<span class="x">use Psr\Log\LoggerInterface;</span>
+<span class="x">use Symfony\Component\HttpFoundation\Request;</span>
+<span class="x">use Symfony\Component\HttpKernel\HttpKernelInterface;</span>
+
+<span class="x">class Logger implements HttpKernelInterface</span>
+<span class="x">{</span>
+<span class="x">    private $app;</span>
+<span class="x">    private $logger;</span>
+
+<span class="x">    public function __construct(HttpKernelInterface $app, LoggerInterface $logger)</span>
+<span class="x">    {</span>
+<span class="x">        $this-&gt;app = $app;</span>
+<span class="x">        $this-&gt;logger = $logger;</span>
+<span class="x">    }</span>
+
+<span class="x">    public function handle(Request $request, $type = HttpKernelInterface::MASTER_REQUEST, $catch = true)</span>
+<span class="x">    {</span>
+<span class="x">        $response = $this-&gt;app-&gt;handle($request, $type, $catch);</span>
+
+<span class="x">        $this-&gt;logger-&gt;info(sprintf(&#39;%s &quot;%s %s %s&quot; %d&#39;,</span>
+<span class="x">            $request-&gt;getHost(),</span>
+<span class="x">            $request-&gt;getMethod(),</span>
+<span class="x">            $request-&gt;getRequestUri(),</span>
+<span class="x">            $request-&gt;server-&gt;get(&#39;SERVER_PROTOCOL&#39;),</span>
+<span class="x">            $response-&gt;getStatusCode()));</span>
+
+<span class="x">        return $response;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>This logger middleware can be composed with <em>any</em> <code>HttpKernel</code> and with <em>any</em>
+PSR-3 logger. For example, you could now use it with Silex and Monolog:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$app = new Silex\Application();</span>
+
+<span class="x">$app-&gt;get(&#39;/&#39;, function () {</span>
+<span class="x">    return &quot;Hello World!\n&quot;;</span>
+<span class="x">});</span>
+
+<span class="x">$app = new Igorw\Middleware\Logger(</span>
+<span class="x">    $app,</span>
+<span class="x">    new Monolog\Logger(&#39;app&#39;)</span>
+<span class="x">);</span>
+
+<span class="x">$request = Request::createFromGlobals();</span>
+<span class="x">$app-&gt;handle($request)-&gt;send();</span>
+</code></pre></div>
+<p>Instead of Silex you could use a Symfony2 app. Or a Laravel4 app. Or you can
+make your own <code>HttpKernel</code>, like this one:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Middleware;</span>
+
+<span class="x">use Symfony\Component\HttpFoundation\Request;</span>
+<span class="x">use Symfony\Component\HttpKernel\HttpKernelInterface;</span>
+
+<span class="x">class CallableHttpKernel implements HttpKernelInterface</span>
+<span class="x">{</span>
+<span class="x">    private $callable;</span>
+
+<span class="x">    public function __construct(callable $callable)</span>
+<span class="x">    {</span>
+<span class="x">        $this-&gt;callable = $callable;</span>
+<span class="x">    }</span>
+
+<span class="x">    public function handle(Request $request, $type = HttpKernelInterface::MASTER_REQUEST, $catch = true)</span>
+<span class="x">    {</span>
+<span class="x">        return call_user_func($this-&gt;callable, $request, $type, $catch);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Which can be used by passing a callable to the constructor:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$app = new CallableHttpKernel(function (Request $request) {</span>
+<span class="x">    return new Response(&quot;Hello World!\n&quot;);</span>
+<span class="x">});</span>
+</code></pre></div>
+<p>As long as you have an object that implements the <code>HttpKernelInterface</code>, it
+can be used with this logger middleware.</p>
+
+<h2>Stack</h2>
+
+<p>While doing HTTP reverse proxy caching in PHP is pointless (as previously
+mentioned), the <code>HttpKernel</code> component ships with a middleware for doing just
+that. So let&#39;s try it.</p>
+
+<p>And in fact the <code>HttpCache</code> middleware is already using the decorator pattern,
+so it composes extremely well with what we already have:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">use Igorw\Middleware\CallableKernel;</span>
+<span class="x">use Symfony\Component\HttpKernel\HttpCache\Store;</span>
+
+<span class="x">$app = new CallableHttpKernel(function (Request $request) {</span>
+<span class="x">    return (new Response(&quot;Hello World!\n&quot;))</span>
+<span class="x">        -&gt;setCache([&#39;s_maxage&#39; =&gt; 20]);</span>
+<span class="x">});</span>
+
+<span class="x">$app = new Igorw\Middleware\Logger(</span>
+<span class="x">    new Symfony\Component\HttpKernel\HttpCache\HttpCache(</span>
+<span class="x">        $app,</span>
+<span class="x">        new Store(__DIR__.&#39;/cache&#39;)</span>
+<span class="x">    ),</span>
+<span class="x">    new Monolog\Logger(&#39;app&#39;)</span>
+<span class="x">);</span>
+</code></pre></div>
+<p>Once you start nesting those middlewares, the construction logic starts to
+become a bit hairy though. Wouldn&#39;t it be great to have an API that looks more
+like pushing middlewares onto a stack?</p>
+
+<p>Ideally something like this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$stack = (new Stack())</span>
+<span class="x">    -&gt;push(&#39;Igorw\Middleware\Logger&#39;, new Monolog\Logger(&#39;app&#39;))</span>
+<span class="x">    -&gt;push(&#39;Symfony\Component\HttpKernel\HttpCache\HttpCache&#39;, new Store(__DIR__.&#39;/cache&#39;));</span>
+
+<span class="x">$app = $stack-&gt;resolve($app);</span>
+</code></pre></div>
+<p>Well, that&#39;s easy enough to implement. <a href="https://github.com/igorw/middleware/blob/master/src/Igorw/Middleware/Stack.php">Take a look at the <code>Stack</code> on
+GitHub</a>.</p>
+
+<p>So now we have a stack of middlewares. Calling <code>resolve</code> will construct the
+object graph and return the outermost <code>HttpKernel</code>.</p>
+
+<p>It exposes a nice API and easily allows adding new middlewares to the stack.
+It is the rough equivalent of
+<a href="http://rack.rubyforge.org/doc/Rack/Builder.html">Rack::Builder</a>, but not
+quite as feature-rich. One missing feature in particular is prefix matching.
+I&#39;ll leave that for another day.</p>
+
+<h2>Better use cases</h2>
+
+<p>So far I&#39;ve only shown you logging and caching, which are both not very sexy
+or even useful. You can go way beyond those boring cases though!</p>
+
+<p><strong>Authentication</strong>. For Rack there are quite a few authentication middlewares
+which can be used with <em>any</em> Rack app. You configure them, they sit in front
+of the app and do their thing. A middleware can provide contextual information
+to the application by adding it to the environment. The <code>HttpKernel</code>
+equivalent would be <code>$request-&gt;attributes</code>.</p>
+
+<p><strong>Debug toolbar</strong>. Currently the Symfony2 debug toolbar only works with the
+Symfony2 framework. There is ongoing work to decouple it. It could be done as
+a request listener. An interesting alternative would be to implement it as a
+middleware, so that it can be composed with other kernels.</p>
+
+<p><strong>Injected routes</strong>, for example an admin panel. You can simply inject routes
+that are prepended to the application.</p>
+
+<p><strong>Signed cookies</strong>. The middleware would just validate all incoming cookies,
+removing invalid ones and sign outgoing ones as trusted. That prevents the
+cookies from being tampered with.</p>
+
+<p><strong>Asset management</strong>. It could be an integration with Assetic, but operating
+at the HTTP level. It would rewrite the HTML source to the minified versions.</p>
+
+<p><strong>Force SSL</strong> seems common enough, it could also be implemented as a
+middleware. If the redirect depends on app-specific context it makes sense to
+not have the webserver do it.</p>
+
+<p><strong>Error handling</strong>. If all of the inside <code>handle</code> calls are done with <code>$catch</code>
+set to <code>false</code>, it should be possible to handle all of those errors at the
+middleware layer. Obviously this needs some tweaking, since certain errors are
+app-specific and need special care.</p>
+
+<p><strong>Sessions</strong>. Initialization of the session itself can be implemented as a
+middleware, that way it is available to all other middlewares as opposed to
+only the application itself.</p>
+
+<p>There&#39;s so many more things you can do. Middlewares thrive at adding
+application functionality in a decoupled manner.</p>
+
+<p>We should consider implementing more things at this level. It makes the
+<code>HttpKernelInterface</code> more attractive for frameworks to adopt. And more
+importantly: it makes it actually useful.</p>
+
+<h2>A word of warning</h2>
+
+<p>Middlewares are neat, but they are not suited for everything.</p>
+
+<p>For one, infrastructure tasks like logging and caching really belong into your
+webserver. Re-implementing that in PHP is just going to slow things down. Use
+Varnish.</p>
+
+<p>The more important point however is that <em>middlewares are coupled to HTTP</em>.
+They should only be considered an integration point. The specific pieces of
+functionality they provide should still be moved to separate classes so that
+they can be properly unit tested and perhaps re-used.</p>
+
+<h2>Summary</h2>
+
+<ul>
+<li><code>HttpKernel</code> is almost like Rack.</li>
+<li>The PHP community should start stacking middlewares.</li>
+<li>Composition is king!</li>
+</ul>
+
+<blockquote>
+<p>All of the code from this post <a href="https://github.com/igorw/middleware">is available on
+GitHub</a>.</p>
+</blockquote>
+
+<p><center style="margin-top: 25px;">
+    <big>
+        <a  href="/2013/05/23/introducing-stack.html"
+            style="background: white; border: 2px #d14 solid; border-radius: 5px; padding: 10px; color: #d14;">
+            Update: Introducing Stack
+        </a>
+    </big>
+</center></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

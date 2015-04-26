@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>S-expressions: Macros</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 29th, 2012
+    </div>
+
+    <div class="body">
+        <h1>S-expressions: Macros</h1>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html"><strong>macros</strong></a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+<p>The interpreter is functioning, it is able to calculate the fibonacci sequence
+recursively. And probably almost anything else you would want to. So what is
+the next step?</p>
+
+<p>We have learnt that Lisp programs themself consist of lists. This makes them
+extremely easy to parse. But apart from that, we have not really seen the
+action of &quot;code as data&quot;. This property is also known as <em>Homoiconicity</em>.</p>
+
+<p>If programs are lists and lists are data, that means we can treat programs as
+data. So instead of just parsing and interpreting it, how about modifying and
+generating new programs? And that&#39;s exactly where macros come into play.</p>
+
+<h2>Macro theory</h2>
+
+<p>You probably know macros from C. A macro is an instruction that is applied to
+the source code before it is compiled. It is a source code transformation. In
+case of C, these macros tend to get very messy, which is mostly due to the
+fact that C is hard to generate code for, especially in a dynamic manner.</p>
+
+<p>In Lisp, macros are quite common. In fact many of the things that are
+implemented as special forms in Ilias are macros in other Lisp
+implementations, and reduce to a very small number of primitive special forms.
+It&#39;s a lot easier to generate valid syntax, because the syntax consists
+entirely of lists.</p>
+
+<p>In fact, Lisp macros are not plain source transformations. They are AST
+transformations. This means that you get the fully parsed syntax tree and can
+make changes to it before it gets compiled or evaluated.</p>
+
+<p>But it gets better. Macros can be defined at runtime. This means that a macro
+defined at runtime can modify the AST of the code following it. Which means
+that macros can use runtime functions to modify the source code.</p>
+
+<p>At this point you&#39;re probably thinking <strong>what the func</strong>, so let&#39;s look at a
+practical example!</p>
+
+<h2>When operator</h2>
+
+<p>Imagine a program with a lot of conditional logic. For each condition there
+are a number of statements that need to be executed. In fact, let&#39;s introduce
+a <code>begin</code> function in order to correctly represent this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\Func;</span>
+
+<span class="x">class BeginFunc</span>
+<span class="x">{</span>
+<span class="x">    public function __invoke()</span>
+<span class="x">    {</span>
+<span class="x">        $args = array_values(func_get_args());</span>
+<span class="x">        return end($args);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Of course it also needs to be added to the standard environment as <code>begin</code>.</p>
+
+<p>The begin function takes a list of arguments and returns the last one. This
+simply allows a series of function calls to be made, and the result of the
+last one to be returned. Like this:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">begin</span> <span class="p">(</span><span class="nv">foo</span><span class="p">)</span>
+       <span class="p">(</span><span class="nv">bar</span><span class="p">)</span>
+       <span class="p">(</span><span class="nv">baz</span><span class="p">))</span>
+</code></pre></div>
+<p>That statement will call three functions: <code>foo</code>, <code>bar</code> and <code>baz</code>. And return
+the resulting value from the <code>baz</code> call.</p>
+
+<p>Now, the program with all of its conditional logic will have to do this all
+over the place:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="k">if</span> <span class="nv">condition?</span>
+    <span class="p">(</span><span class="nv">begin</span> <span class="p">(</span><span class="nv">foo</span><span class="p">)</span>
+           <span class="p">(</span><span class="nv">bar</span><span class="p">)</span>
+           <span class="p">(</span><span class="nv">baz</span><span class="p">)))</span>
+</code></pre></div>
+<p>It must use <code>begin</code> to group the statements due to the way that <code>if</code> is
+structured. You cannot use a function for this, because some of the statements
+are conditional, and functions have all arguments evaluated before their
+application.</p>
+
+<p>At some point you may think: Why am I repeating myself? If only the language
+had a <code>when</code> operator that has no <code>else-form</code> but just executes all arguments
+in sequence. And it would work like this:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">when</span> <span class="nv">condition?</span>
+    <span class="p">(</span><span class="nv">foo</span><span class="p">)</span>
+    <span class="p">(</span><span class="nv">bar</span><span class="p">)</span>
+    <span class="p">(</span><span class="nv">baz</span><span class="p">))</span>
+</code></pre></div>
+<p>With macros, you can add this new operator to the language yourself!</p>
+
+<h2>DefMacro</h2>
+
+<p>The way you can add it is by using the <code>defmacro</code> special form.</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">defmacro</span> <span class="nb">when</span> <span class="p">(</span><span class="kt">condition</span> <span class="nv">a</span> <span class="nv">b</span> <span class="nv">c</span><span class="p">)</span>
+    <span class="p">(</span><span class="nb">list</span> <span class="ss">&#39;if</span> <span class="kt">condition</span> <span class="p">(</span><span class="nb">list</span> <span class="ss">&#39;begin</span> <span class="nv">a</span> <span class="nv">b</span> <span class="nv">c</span><span class="p">)))</span>
+</code></pre></div>
+<p>It takes three arguments:</p>
+
+<ul>
+<li><p><strong>name:</strong> The name of the macro, which is a symbol under which the macro
+will be stored in the environment. In this case <code>when</code>.</p></li>
+<li><p><strong>arguments:</strong> The argument list names unevaluated parts of the AST that
+will get passed to the macro function.</p></li>
+<li><p><strong>body:</strong> This is the equivalent of the body of a <code>lambda</code> special form
+which operates on the provided arguments. The return value of this
+function is the new AST that should be used instead of the original one.
+What it is doing in this case is constructing the actual previous source
+code of <code>(if condition? (begin a b c))</code> as a list, and returning it.</p></li>
+</ul>
+
+<p>Other implementations have a more fancy way of representing list construction,
+I will keep it raw in this case and construct lists manually using a <code>list</code>
+function which produces a list form from its arguments.</p>
+
+<p>Actually, that function does not exist yet, so let&#39;s define it:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\Func;</span>
+
+<span class="x">use Igorw\Ilias\Form\ListForm;</span>
+
+<span class="x">class ListFunc</span>
+<span class="x">{</span>
+<span class="x">    public function __invoke()</span>
+<span class="x">    {</span>
+<span class="x">        return new ListForm(func_get_args());</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>As always, this also needs to go into the standard environment.</p>
+
+<p>Going back to <code>defmacro</code>, it is basically just a special form that constructs
+a macro function and assigns it to the environment. It will be represented by
+a <code>DefMacroOp</code> and is relatively straight-forward to implement:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\SpecialOp;</span>
+
+<span class="x">use Igorw\Ilias\Environment;</span>
+<span class="x">use Igorw\Ilias\Form\ListForm;</span>
+
+<span class="x">class DefMacroOp implements SpecialOp</span>
+<span class="x">{</span>
+<span class="x">    public function evaluate(Environment $env, ListForm $args)</span>
+<span class="x">    {</span>
+<span class="x">        $name = $args-&gt;car()-&gt;getSymbol();</span>
+<span class="x">        $macroArgs = $args-&gt;cdr()-&gt;car();</span>
+<span class="x">        $macroBody = $args-&gt;cdr()-&gt;cdr()-&gt;car();</span>
+<span class="x">        $env[$name] = new MacroOp($macroArgs, $macroBody);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>The macro function itself will be an instance of <code>MacroOp</code>, and this is in
+fact the first time that a special form is being constructed dynamically. So
+far they have always been pre-defined on the environment. Now we are creating
+instances of the macro special form dynamically at runtime.</p>
+
+<h2>Macro operator</h2>
+
+<p>Now that macros can be defined, it also needs to be possible to actually
+expand them into their resulting form before evaluation. A very easy way of
+doing that is by expanding at runtime.</p>
+
+<p>Once the program execution hits this form and evaluates it:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">when</span> <span class="nv">condition?</span>
+    <span class="p">(</span><span class="nv">foo</span><span class="p">)</span>
+    <span class="p">(</span><span class="nv">bar</span><span class="p">)</span>
+    <span class="p">(</span><span class="nv">baz</span><span class="p">))</span>
+</code></pre></div>
+<p>The macro operator expands it to:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="k">if</span> <span class="nv">condition?</span>
+    <span class="p">(</span><span class="nv">begin</span> <span class="p">(</span><span class="nv">foo</span><span class="p">)</span>
+           <span class="p">(</span><span class="nv">bar</span><span class="p">)</span>
+           <span class="p">(</span><span class="nv">baz</span><span class="p">)))</span>
+</code></pre></div>
+<p>Then evaluates that and returns the result.</p>
+
+<p>The macro operator has two constructor arguments as seen in <code>DefMacroOp</code>: A
+list of arguments and a list form representing the body.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\SpecialOp;</span>
+
+<span class="x">use Igorw\Ilias\Environment;</span>
+<span class="x">use Igorw\Ilias\Form\ListForm;</span>
+
+<span class="x">class MacroOp implements SpecialOp</span>
+<span class="x">{</span>
+<span class="x">    private $macroArgs;</span>
+<span class="x">    private $macroBody;</span>
+
+<span class="x">    public function __construct(ListForm $macroArgs, ListForm $macroBody)</span>
+<span class="x">    {</span>
+<span class="x">        $this-&gt;macroArgs = $macroArgs;</span>
+<span class="x">        $this-&gt;macroBody = $macroBody;</span>
+<span class="x">    }</span>
+
+<span class="x">    public function evaluate(Environment $env, ListForm $args)</span>
+<span class="x">    {</span>
+<span class="x">        ...</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>There is one issue has not been discussed yet. And that is recursive
+expansion. If a macro call returns a new macro call, then that new macro call
+must also be expanded.</p>
+
+<p>For example:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">defmacro</span> <span class="nv">plus</span> <span class="p">(</span><span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="nb">list</span> <span class="ss">&#39;+</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">))</span>
+<span class="p">(</span><span class="nb">defmacro</span> <span class="nv">pl</span> <span class="p">(</span><span class="nv">a</span> <span class="nv">b</span><span class="p">)</span> <span class="p">(</span><span class="nb">list</span> <span class="ss">&#39;plus</span> <span class="nv">a</span> <span class="nv">b</span><span class="p">))</span>
+<span class="p">(</span><span class="nv">pl</span> <span class="mi">1</span> <span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+<p>The third form of <code>(pl 1 2)</code> must be expanded once, yielding <code>(plus 1 2)</code>. And
+since <code>plus</code> is also a macro, it needs to be expanded again, producing the
+final <code>(+ 1 2)</code> which can then be evaluated. The macro operator must be able
+to handle that case.</p>
+
+<p>It turns out that the implementation of <code>MacroOp</code> is quite trivial. Most of
+the logic is already defined in <code>LambdaOp</code> and can be re-used. And because
+macros are expanded at runtime, they expand recursively automatically, simply
+by invoking them:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">public function evaluate(Environment $env, ListForm $args)</span>
+<span class="x">{</span>
+<span class="x">    $expanded = $this-&gt;expandOne($env, $args);</span>
+
+<span class="x">    return $expanded-&gt;evaluate($env);</span>
+<span class="x">}</span>
+
+<span class="x">public function expandOne(Environment $env, Form $form)</span>
+<span class="x">{</span>
+<span class="x">    $transformForm = new LambdaOp();</span>
+<span class="x">    $transformFormArgs = new ListForm([</span>
+<span class="x">        $this-&gt;macroArgs,</span>
+<span class="x">        $this-&gt;macroBody,</span>
+<span class="x">    ]);</span>
+
+<span class="x">    $transformFn = $transformForm-&gt;evaluate($env, $transformFormArgs);</span>
+
+<span class="x">    return call_user_func_array($transformFn, $form-&gt;toArray());</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Indeed, this is all it takes to implement runtime macro expansion.</p>
+
+<blockquote>
+<p>Note: This implementation of macros does not operate on the raw AST, but on
+the form tree instead. The form tree is nothing more than an AST with
+attached behaviour. It&#39;s an enriched AST.</p>
+</blockquote>
+
+<h2>How is this different from eval?</h2>
+
+<blockquote>
+<p>And while we&#39;re at it, isn&#39;t eval evil?</p>
+</blockquote>
+
+<p>Macros are definitely extremely powerful and also quite dangerous. But they
+are <em>not</em> the equivalent of calling <code>eval</code> in PHP.</p>
+
+<ul>
+<li><p>Macros do not have to be expanded at runtime. (More on this in an upcoming
+blog post).</p></li>
+<li><p>Evaluation in Lisp does not mean interpretation. Many implementations will
+in fact compile the code before running it. Which could be remotely compared
+to opcode caching in PHP.</p></li>
+</ul>
+
+<h2>Conclusion</h2>
+
+<p>Macros are an extremely powerful code generation tool that is built into the
+language and allows you to define your own language constructs which look just
+like native ones.</p>
+
+<h2>Further reading</h2>
+
+<ul>
+<li><a href="http://sweetjs.org/">Sweet.js: JavaScript macros</a></li>
+<li><a href="http://www.youtube.com/watch?v=_ahvzDzKdB0">Growing a Language - Guy Steele</a></li>
+<li><a href="https://github.com/igorw/ilias/blob/master/src/Igorw/Ilias/SpecialOp/DefMacroOp.php">Source code: <code>Igorw\Ilias\SpecialOp\DefMacroOp</code></a></li>
+<li><a href="https://github.com/igorw/ilias/blob/master/src/Igorw/Ilias/SpecialOp/MacroOp.php">Source code: <code>Igorw\Ilias\SpecialOp\MacroOp</code></a></li>
+<li><a href="https://github.com/igorw/ilias/blob/master/tests/Igorw/Ilias/IntegrationTest.php#L56">Source code: <code>Igorw\Ilias\IntegrationTest</code></a></li>
+</ul>
+
+<hr>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html"><strong>macros</strong></a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

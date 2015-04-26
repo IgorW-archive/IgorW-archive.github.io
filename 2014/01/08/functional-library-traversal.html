@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Functional Library: Traversal</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Jan 8th, 2014
+    </div>
+
+    <div class="body">
+        <h1>Functional Library: Traversal</h1>
+
+<p>Traversing associative data structures in PHP is fun. Said no one ever.</p>
+
+<p>The problem is a common one if you&#39;re processing any kind of data, for example
+a response from a JSON API. You need to access some nested structure, but you
+don&#39;t know if what you&#39;re accessing actually exists. So Maybe there is a
+better way to handle this that does not involve PHP throwing notices in your
+face.</p>
+
+<p><center>
+    <img src="/img/funlib-traversal/traversal.png" alt="traversal">
+</center></p>
+
+<h2>The dreaded notice</h2>
+
+<p>This is what I&#39;m talking about:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$data = [&#39;people&#39; =&gt; [[&#39;name&#39; =&gt; &#39;Mario&#39;]]];</span>
+
+<span class="x">var_dump($data[&#39;people&#39;][0][&#39;age&#39;]);</span>
+</code></pre></div>
+<p>Since the <code>age</code> property does not exist, it will give you this:</p>
+
+<blockquote>
+<p>PHP Notice:  Undefined index: age in foo.php on line n</p>
+</blockquote>
+
+<p>But surely you can get a default value for it. Right?</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$age = $data[&#39;people&#39;][0][&#39;age&#39;] ?: null;</span>
+</code></pre></div>
+<p>Wrong. You get the same notice. You could add an <code>@</code> in front of the acces,
+but we will not go there because <code>@</code> is evil and must never be used. If you
+don&#39;t believe me, go look up what <code>xdebug.scream</code> is.</p>
+
+<p>So in order to do this correctly, you need to produce the following
+copy-pasta:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$age = (isset($data[&#39;people&#39;][0][&#39;age&#39;])) ? $data[&#39;people&#39;][0][&#39;age&#39;] : null;</span>
+</code></pre></div>
+<p>Ultra-cringeworthy.</p>
+
+<h2>get-in</h2>
+
+<p>How often have you written this piece of code:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$baz = (isset($data[&#39;foo&#39;][&#39;bar&#39;][&#39;baz&#39;])) ? $data[&#39;foo&#39;][&#39;bar&#39;][&#39;baz&#39;] : null;</span>
+</code></pre></div>
+<p>Have you ever thought to yourself <em>there must be a better way</em>?</p>
+
+<p>There is a better way.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">use function igorw\get_in;</span>
+
+<span class="x">$baz = get_in($data, [&#39;foo&#39;, &#39;bar&#39;, &#39;baz&#39;]);</span>
+</code></pre></div>
+<p>All of the duplication is gone. It is now just one single array that describes
+the traversal.</p>
+
+<p><strong>get-in</strong> is a function that takes an associative structure and a list of
+keys that represent the nested traversal. Optionally, you can provide a
+default value for non-existent keys, if none is provided it will return <code>null</code>
+in that case.</p>
+
+<p><center>
+    <img src="/img/funlib-traversal/get_in.png" alt="get-in">
+</center></p>
+
+<h2>Library</h2>
+
+<p>The above example is based on the <a href="https://github.com/igorw/get-in">igorw/get-in</a>
+library.</p>
+
+<p>In case you are wondering about the name, it is based on the <code>get-in</code> function
+present in <a href="http://clojure.org">clojure</a>.</p>
+
+<p>This library is quite tiny, by design. It solves one small problem. Next time
+you are about to put in a monster <code>isset</code>, remember <code>get-in</code>.</p>
+
+<hr>
+
+<p>The first Donkey Kong was released in July 1981, Mario is 32 years old.</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

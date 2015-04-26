@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: Jumps</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Nov 30th, 2014
+    </div>
+
+    <div class="body">
+        <h1>Stack Machines: Jumps</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html"><strong>jumps</strong></a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<p><code>label(start)</code></p>
+
+<div style="margin: 15px 30px;">
+    <p>Hi.</p>
+
+    <p>We have seen that stack machines can be extended with I/O, enabling them to talk back at us pesky humans.</p>
+
+    <p>We shall now make a huge leap by introducing a new feature: <strong>Jumps</strong>!</p>
+
+    <code>jmp(main)</code>
+</div>
+
+<p><code>label(gif)</code></p>
+
+<div style="margin: 15px 30px;">
+    <center>
+        <img src="/img/stack-machine-jumps/pinky-pie-jump.gif">
+    </center>
+</div>
+
+<p><code>label(main)</code></p>
+
+<h2>My CPU uses GOTO?</h2>
+
+<p>The fundamental control flow mechanism in most virtual machines and in actual CPUs is a jump. Jumps are a matter of jumping to a particular memory address and continuing execution from there.</p>
+
+<p>High-level constructs like <strong>if</strong> and <strong>while</strong> statements are compiled down to jumps.</p>
+
+<p>So far, the stack machine has no control flow. Its execution is linear. The instructions are read sequentially from the instruction stream and executed in order. Once the end of the instruction stream is reached, the program terminates.</p>
+
+<p>In the code, this is signified by this line:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">foreach ($ops as $op) {</span>
+</code></pre></div>
+<p>The <strong>foreach</strong> loop limits the execution to be <em>linear</em>.</p>
+
+<h2>Memory model</h2>
+
+<p>Modern computers are implemented in terms of the Von-Neumann-Architecture. In simple terms, that architecture means that programs are stored in memory. This is quite significant, as it means the instructions for what a computer should do and the data used by the program are stored in the same place!</p>
+
+<p>It means you only have to build one general purpose physical machine, and have any program run on it, simply by writing it into memory. This is the reason why software is soft.</p>
+
+<p>You can think of memory as a huge array of numbers. Some of the numbers represent program instructions and are often known as <em>opcodes</em>. Some of the numbers represent data used by the program.</p>
+
+<p>In order to not mix the program space and the data space (although self-modifying code can be fun to play with), the memory is chunked up into segments.</p>
+
+<p>Quite often, the segments will be: <em>code, heap, stack</em>.</p>
+
+<p><center>
+    <img src="/img/stack-machine-jumps/memory-model.png">
+</center></p>
+
+<p>The current stack machine already models these segments!</p>
+
+<p>We have a <strong>code segment</strong>:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$ops = explode(&#39; &#39;, &#39;1 2 +&#39;);</span>
+</code></pre></div>
+<p>There is <strong>no heap</strong>, at least not yet. If we had dynamically allocated numbers, the heap would hold them.</p>
+
+<p>But there is a <strong>stack segment</strong>:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$stack = new SplStack();</span>
+</code></pre></div>
+<h2>Instruction pointer</h2>
+
+<p>When a program is executed, there is always a <em>current instruction</em> that is being executed. The CPU can remember this instruction by storing its address in a register called the <strong>instruction pointer</strong>.</p>
+
+<p>You can think of a <strong>register</strong> as a variable inside of the CPU. A memory <strong>address</strong> is just an offset into the large array that is memory.</p>
+
+<p>The instruction pointer points into the <strong>code segment</strong>. For this reason it is sometimes also called the <strong>code pointer</strong>.</p>
+
+<p><center>
+    <img src="/img/stack-machine-jumps/instruction-pointer.png">
+</center></p>
+
+<p>We can get the instruction pointer <code>$ip</code> by reading the index in the <strong>foreach</strong> loop:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">foreach ($ops as $ip =&gt; $op) {</span>
+</code></pre></div>
+<p>This <strong>foreach</strong> loop can also be written as a <strong>for</strong> loop:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">for ($ip = 0; $ip &lt; count($ops); $ip++) {</span>
+<span class="x">    $op = $ops[$ip];</span>
+</code></pre></div>
+<p>Or even as a <strong>while</strong> loop:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$ip = 0;</span>
+<span class="x">while ($ip &lt; count($ops)) {</span>
+<span class="x">    $op = $ops[$ip++];</span>
+</code></pre></div>
+<p>There is a fundamental difference between the <strong>foreach</strong> and the <strong>while</strong> that we will discover shortly.</p>
+
+<blockquote>
+<p><strong>SPOILER ALERT</strong> (don&#39;t tell your parents): This allows the instruction pointer to be changed.</p>
+</blockquote>
+
+<h2>Labels</h2>
+
+<p>Jumps will involve referencing addresses in the code segment. In other words, referencing the particular instruction that you want to jump to.</p>
+
+<p>It would be possible to reference that instruction by its address directly. This would mean hard-coding the offset into the program. That is rather inflexible though, because every time code is shifted around, the offset needs to be adjusted manually.</p>
+
+<p>A better way of getting an address is by introducing <strong>labels</strong>. A label just names a location in memory. That&#39;s it.</p>
+
+<p>So instead of referring to a memory location by address, there is a lookup table from name to address, allowing memory to be referred to by name.</p>
+
+<p>The syntax I will use for labels will look like this:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">label(foo)
+    some code
+    some more code
+label(bar)
+    even more code
+</code></pre></div>
+<h2>Jumps</h2>
+
+<p>To perform a jump, there needs to be a <code>jmp</code> instruction in the VM. That instruction takes a label name, looks up the corresponding address, then sets the instruction pointer <code>$ip</code> to that address.</p>
+
+<p>This allows jumping backward:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">label(forever)
+    jmp(forever)
+</code></pre></div>
+<p>This example loops forever.</p>
+
+<p>Or forward:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">label(main)
+    1 2 +
+    jmp(skip)
+label(garbage)
+    some random garbage
+label(skip)
+    2 +
+</code></pre></div>
+<p>This example skips over the <strong>garbage</strong> label, jumping to the <strong>skip</strong> label.</p>
+
+<h2>Pre-processing</h2>
+
+<p>In order to lookup labels that are defined later in the instruction stream, all labels must be pre-processed. The label table must be built ahead of time.</p>
+
+<p>This is just a matter of looping over the code segment and looking for labels.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$labels = [];
+foreach ($ops as $ip =&gt; $op) {
+    if (preg_match(&#39;/^label\((.+)\)$/&#39;, $op, $match)) {
+        $label = $match[1];
+        $labels[$label] = $ip;
+    }
+}
+</code></pre></div>
+<p>We are now ready to implement the actual jump instruction.</p>
+
+<h2>Implementation</h2>
+
+<p>The jump instruction just sets the instruction pointer <code>$ip</code> to the address of the label.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">if (preg_match(&#39;/^jmp\((.+)\)$/&#39;, $op, $match)) {
+    $label = $match[1];
+    $ip = $labels[$label];
+    continue;
+}
+</code></pre></div>
+<p>Since the label definition is implemented as a pseudo-instruction, it must be handled as a <em>noop</em>.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">if (preg_match(&#39;/^label\((.+)\)$/&#39;, $op, $match)) {
+    // noop
+    continue;
+}
+</code></pre></div>
+<h2>Unconditionally</h2>
+
+<blockquote>
+<p>Unconditional, unconditionally <br />
+I will love you unconditionally <br />
+There is no fear now <br />
+Let go and just be free <br />
+I will love you unconditionally <br /></p>
+
+<p><em>&mdash; Katy Perry</em></p>
+</blockquote>
+
+<p>This machine supports two classes of programs: Those that always terminate, and those that loop forever.</p>
+
+<p><center>
+    <img src="/img/stack-machine-jumps/pinky-pie-omg.gif">
+</center></p>
+
+<p>Whether or not a program contains an infinite loop can be decided statically. The halting problem is solved. We can go home now.</p>
+
+<p>The reason is that jumps are unconditional. A jump will always be followed. It has exactly one entry point and one exit point.</p>
+
+<p>Conditional branching will change everything once again, but for now let us enjoy the unconditional infinite loops.</p>
+
+<h2>Summary</h2>
+
+<p><span style="background-color: yellow;">
+    Adding unconditional jumps to an RPN calculator allows it to loop forever.
+</span></p>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html"><strong>jumps</strong></a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<hr>
+
+<div style="height: 200px;"></div>
+
+<p><center><em>This space has been intentionally left blank.</em></center>
+<div style="height: 200px;"></div></p>
+
+<h2>Appendix</h2>
+
+<p>Here is the full code for a stack machine with pre-processed labels and non-conditional jumps:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">$labels = [];
+foreach ($ops as $ip =&gt; $op) {
+    if (preg_match(&#39;/^label\((.+)\)$/&#39;, $op, $match)) {
+        $label = $match[1];
+        $labels[$label] = $ip;
+    }
+}
+
+$ip = 0;
+$stack = new SplStack();
+
+while ($ip &lt; count($ops)) {
+    $op = $ops[$ip++];
+
+    if (is_numeric($op)) {
+        $stack-&gt;push((int) $op);
+        continue;
+    }
+
+    if (preg_match(&#39;/^jmp\((.+)\)$/&#39;, $op, $match)) {
+        $label = $match[1];
+        $ip = $labels[$label];
+        continue;
+    }
+
+    if (preg_match(&#39;/^label\((.+)\)$/&#39;, $op, $match)) {
+        // noop
+        continue;
+    }
+
+    switch ($op) {
+        case &#39;+&#39;:
+            $b = $stack-&gt;pop();
+            $a = $stack-&gt;pop();
+            $stack-&gt;push($a + $b);
+            break;
+        // ...
+    }
+}
+</code></pre></div>
+<p>But we both know you&#39;re only here for the gifs.</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

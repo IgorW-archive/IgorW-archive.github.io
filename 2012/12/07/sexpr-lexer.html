@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>S-expressions: Lexer</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 7th, 2012
+    </div>
+
+    <div class="body">
+        <h1>S-expressions: Lexer</h1>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html"><strong>lexer</strong></a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+<p>In this follow-up post to s-expressions I would like to introduce you to
+lexical analysis.</p>
+
+<p>Parsing a language or a data format is often implemented as
+a two step process. The first step is <em>lexing</em> which takes raw data and
+translates it to a <em>token stream</em>. The second step is <em>parsing</em> which
+translates a token stream to an <em>abstract syntax tree</em>.</p>
+
+<p><center>
+    <img src="/sexpr/parser-process.png" alt="parser process">
+</center></p>
+
+<h2>Tokenization</h2>
+
+<p>The job of the lexer is tokenization. You give it code, it looks at the
+characters, groups them and labels those groups with some sort of type.</p>
+
+<p>It usually does not perform any validation on the tokens, except for very
+basic checks, such as throwing an exception if no valid token is matched at
+all.</p>
+
+<p>Here is an example of some possible inputs you could feed into an sexpr lexer,
+and the resulting outputs:</p>
+
+<div class="ascii-table"><pre>
++---------------+----------------------------------------------------+
+| Sexpr         | Tokens                                             |
++---------------+----------------------------------------------------+
+| foo           | ["foo"]                                            |
+| an-atom       | ["an-atom"]                                        |
+| ()            | ["(", ")"]                                         |
+| (foo)         | ["(", "foo", ")"]                                  |
+| (foo bar)     | ["(", "foo", "bar", ")"]                           |
+| (foo bar baz) | ["(", "foo", "bar", "baz", ")"]                    |
+| (+ 1 2)       | ["(", "+", "1", "2", ")"]                          |
+| ((a 1) (b 2)) | ["(", "(", "a", "1", ")", "(", "b", "2", ")", ")"] |
++---------------+----------------------------------------------------+
+</pre></div>
+
+<p>A more advanced lexer could define specific token types such as <code>T_OPEN</code>,
+<code>T_CLOSE</code>, <code>T_ATOM</code> and encode them as part of the token stream. In the case
+of s-expressions it&#39;s very easy to detect the token type from its raw
+characters, so just returning a flat array of strings will suffice for now.</p>
+
+<h2>Quoting</h2>
+
+<p>Before we look at the actual code for lexing, you need to understand one more
+concept about s-expressions that I shamelessly omitted in the last post:
+quoting.</p>
+
+<p>Since sexprs are code in Lisp, non-numeric atoms are interpreted as variables
+and lists are interpreted as function calls. In order to represent data and
+have a sexpr not evaluate, you need to quote the value.</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="k">quote</span> <span class="nv">foo</span><span class="p">)</span>
+<span class="p">(</span><span class="k">quote</span> <span class="p">(</span><span class="nb">+</span> <span class="mi">1</span> <span class="mi">2</span><span class="p">))</span>
+</code></pre></div>
+<p>There is also a shortcut for this: just prepend a single quote in front of the
+expression that you want to quote.</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="ss">&#39;foo</span>
+<span class="o">&#39;</span><span class="p">(</span><span class="nb">+</span> <span class="mi">1</span> <span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+<p>Now you can apply the <code>length</code> function with a list of atoms, which will in
+this case return <code>3</code>:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">length</span> <span class="o">&#39;</span><span class="p">(</span><span class="nv">a</span> <span class="nv">b</span> <span class="nv">c</span><span class="p">))</span>
+</code></pre></div>
+<p>Going back to the lexer, this means that it should turn the <code>&#39;</code> into a
+<code>T_QUOTE</code> token, which I will represent using the quote character.</p>
+
+<div class="ascii-table"><pre>
++--------+------------------------+
+| Sexpr  | Tokens                 |
++--------+------------------------+
+| 'foo   | ["'", 'foo']           |
+| '(foo) | ["'", '(', 'foo', ')'] |
++--------+------------------------+
+</pre></div>
+
+<p>Those test cases should already give a fairly complete subset of sexpr tokens.</p>
+
+<h2>Lexer</h2>
+
+<blockquote>
+<p>Note: All of the code samples from this series are based on a very simplistic Lisp
+implementation I did in PHP: <a href="https://github.com/igorw/ilias">Ilias</a>.</p>
+</blockquote>
+
+<p>The lexer will be a class with a single <code>tokenize</code> method.</p>
+
+<p>Usage:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$lexer = new Lexer();</span>
+<span class="x">$tokens = $lexer-&gt;tokenize($code);</span>
+</code></pre></div>
+<p>Source:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias;</span>
+
+<span class="x">class Lexer</span>
+<span class="x">{</span>
+<span class="x">    private $whitespace = [&#39; &#39;, &quot;\t&quot;, &quot;\r&quot;, &quot;\n&quot;];</span>
+<span class="x">    private $nonAtom = [&#39;(&#39;, &#39;)&#39;, &#39; &#39;, &quot;\t&quot;, &quot;\r&quot;, &quot;\n&quot;];</span>
+
+<span class="x">    public function tokenize($code)</span>
+<span class="x">    {</span>
+<span class="x">        $tokens = [];</span>
+
+<span class="x">        for ($i = 0, $length = strlen($code); $i &lt; $length; $i++) {</span>
+<span class="x">            $char = $code[$i];</span>
+
+<span class="x">            // kill whitespace</span>
+<span class="x">            if (in_array($char, $this-&gt;whitespace)) {</span>
+<span class="x">                continue;</span>
+<span class="x">            }</span>
+
+<span class="x">            // parens are single tokens</span>
+<span class="x">            if (in_array($char, [&#39;(&#39;, &#39;)&#39;])) {</span>
+<span class="x">                $tokens[] = $char;</span>
+<span class="x">                continue;</span>
+<span class="x">            }</span>
+
+<span class="x">            // quote token (just the quote character)</span>
+<span class="x">            if (&quot;&#39;&quot; === $char) {</span>
+<span class="x">                $tokens[] = $char;</span>
+<span class="x">                continue;</span>
+<span class="x">            }</span>
+
+<span class="x">            // atom token</span>
+<span class="x">            $atom = &#39;&#39;;</span>
+<span class="x">            $next = $char;</span>
+<span class="x">            do {</span>
+<span class="x">                $atom .= $next;</span>
+<span class="x">                $next = ($length &gt; $i+1) ? $code[$i+1] : null;</span>
+<span class="x">            } while (null !== $next &amp;&amp; !in_array($next, $this-&gt;nonAtom) &amp;&amp; ++$i);</span>
+<span class="x">            $tokens[] = $atom;</span>
+<span class="x">        }</span>
+
+<span class="x">        return $tokens;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>The lexer consumes the input one character at a time. First it checks for
+whitespace, which is simply ignored. Then it detects single-char tokens which
+are pushed onto the token stream array. Finally, it turns all chars that are
+part of an atom into an atom token.</p>
+
+<p>Well, that is already enough to correctly tokenize the above test cases and
+quite a few more.</p>
+
+<h2>Conclusion</h2>
+
+<ul>
+<li>Parsing is usually a two step process: Lexing and token parsing.</li>
+<li>A lexer turns raw data into a token stream.</li>
+<li>I want to know how to parse a token stream into an abstract syntax tree.</li>
+</ul>
+
+<h2>Further reading</h2>
+
+<ul>
+<li><a href="http://nikic.github.com/2011/10/23/Improving-lexing-performance-in-PHP.html">Improving lexing performance in PHP - nikic</a></li>
+<li><a href="https://github.com/igorw/ilias/blob/master/src/Igorw/Ilias/Lexer.php">Source code: <code>Igorw\Ilias\Lexer</code></a></li>
+<li><a href="https://github.com/igorw/ilias/blob/master/tests/Igorw/Ilias/LexerTest.php">Source code: <code>Igorw\Ilias\LexerTest</code></a></li>
+</ul>
+
+<hr>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html"><strong>lexer</strong></a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

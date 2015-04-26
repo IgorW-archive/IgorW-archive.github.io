@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>S-expressions: Special forms</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 14th, 2012
+    </div>
+
+    <div class="body">
+        <h1>S-expressions: Special forms</h1>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html"><strong>special-forms</strong></a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+<blockquote>
+<p><strong>Note:</strong> The terminology of this post was changed from <em>special form</em> to
+<em>special operator</em> where appropriate on Dec 28, 2012.</p>
+</blockquote>
+
+<p>Ilias is quite powerful at this point. It allows arbitrary variables to be
+defined in PHP. These variables can be functions. These functions can be
+called from within Lisp.</p>
+
+<p>However, there are some fundamental constructs that are missing to make the
+language unstoppable, which once added will inevitably lead to world
+domination: <code>define</code>, <code>lambda</code> and <code>if</code>.</p>
+
+<h2>Program</h2>
+
+<p>Before we look into that, let&#39;s simplify the usage of the toolchain. It now
+includes: Lexer, Reader, FormTreeBuilder. How about a class that packages
+those steps up. I will call it <code>Program</code>:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias;</span>
+
+<span class="x">class Program</span>
+<span class="x">{</span>
+<span class="x">    private $lexer;</span>
+<span class="x">    private $reader;</span>
+<span class="x">    private $builder;</span>
+
+<span class="x">    public function __construct(Lexer $lexer, Reader $reader, FormTreeBuilder $builder)</span>
+<span class="x">    {</span>
+<span class="x">        $this-&gt;lexer = $lexer;</span>
+<span class="x">        $this-&gt;reader = $reader;</span>
+<span class="x">        $this-&gt;builder = $builder;</span>
+<span class="x">    }</span>
+
+<span class="x">    public function evaluate(Environment $env, $code)</span>
+<span class="x">    {</span>
+<span class="x">        $tokens = $this-&gt;lexer-&gt;tokenize($code);</span>
+<span class="x">        $ast = $this-&gt;reader-&gt;parse($tokens);</span>
+<span class="x">        $forms = $this-&gt;builder-&gt;parseAst($ast);</span>
+
+<span class="x">        $value = null;</span>
+<span class="x">        foreach ($forms as $form) {</span>
+<span class="x">            $value = $form-&gt;evaluate($env);</span>
+<span class="x">        }</span>
+<span class="x">        return $value;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>It lexes, then parses, then builds a form tree. Finally it evaluates all forms
+and returns the result of the last one.</p>
+
+<p>Usage:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$program = new Program(</span>
+<span class="x">    new Lexer(),</span>
+<span class="x">    new Reader(),</span>
+<span class="x">    new FormTreeBuilder()</span>
+<span class="x">);</span>
+
+<span class="x">$env = Environment::standard();</span>
+<span class="x">var_dump($program-&gt;evaluate($env, &#39;(+ 1 2)&#39;));</span>
+</code></pre></div>
+<p>That&#39;s a lot easier to use. Back to world domination.</p>
+
+<h2>Why special is special</h2>
+
+<p>The new constructs <code>define</code>, <code>lambda</code> and <code>if</code> are special. They are language
+constructs that do not behave like regular functions, although they may appear
+so.</p>
+
+<p><code>define</code> is used to assign a value to a symbol in the environment.</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">define</span> <span class="nv">foo</span> <span class="mi">42</span><span class="p">)</span>
+<span class="nv">foo</span>
+</code></pre></div>
+<p>That&#39;s a program of two forms. The first form is a <code>define</code> special form that
+defines the symbol <em>foo</em> to represent the value <em>42</em>. The second form is a
+symbol form representing the <em>foo</em> variable that evaluates to <em>42</em>. The return
+value of this program is <em>42</em>.</p>
+
+<p>The special thing about <code>define</code> is that it has access to the environment at
+call time. It needs to, in order to set the value on it. Normal functions do
+not have this capability.</p>
+
+<p>The second, more profound difference which is very subtle in this case is that
+it does not evaluate all of its arguments. It surely evaluates the second
+argument, which is a literal. But it does <em>not</em> evaluate the first argument,
+the symbol.</p>
+
+<p>If it tried to evaluate <code>foo</code> that would result in an error, since <code>foo</code> is
+not defined on the environment yet, as that&#39;s what <code>define</code> is about to do!</p>
+
+<h2>Special operator interface</h2>
+
+<p>In order to deal with special forms, they need to be modeled in the form tree.
+A special form is a list form whose first element is a special operator. The
+<code>SpecialOp</code> interface gives the operator access to the environment and to the
+unevaluated arguments.</p>
+
+<p>I repeat, the <em>unevaluated arguments</em>.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\SpecialOp;</span>
+
+<span class="x">use Igorw\Ilias\Environment;</span>
+<span class="x">use Igorw\Ilias\Form\ListForm;</span>
+
+<span class="x">interface SpecialOp</span>
+<span class="x">{</span>
+<span class="x">    public function evaluate(Environment $env, ListForm $args);</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>The form tree builder does not have to be modified. Special operators are
+simply values defined on the environment that look like functions but have a
+different behaviour when evaluated. The only adjustment needs to be made in
+<code>ListForm::evaluate()</code>, since special forms are a special kind of list form.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">public function evaluate(Environment $env)</span>
+<span class="x">{</span>
+<span class="x">    $func = $this-&gt;car()-&gt;evaluate($env);</span>
+
+<span class="x">    if ($func instanceof SpecialOp) {</span>
+<span class="x">        return $func-&gt;evaluate($env, $this-&gt;cdr());</span>
+<span class="x">    }</span>
+
+<span class="x">    $args = $this-&gt;evaluateArgs($env, $this-&gt;cdr());</span>
+<span class="x">    return call_user_func_array($func, $args);</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>If the function in an list form evaluation is a special form, it is evaluated
+with the <code>cdr</code> passed in unevaluated.</p>
+
+<h2>Define</h2>
+
+<p><code>define</code> will be the first special form, implementing the <code>SpecialOp</code>
+interface:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\SpecialOp;</span>
+
+<span class="x">use Igorw\Ilias\Environment;</span>
+<span class="x">use Igorw\Ilias\Form\ListForm;</span>
+
+<span class="x">class DefineOp implements SpecialOp</span>
+<span class="x">{</span>
+<span class="x">    public function evaluate(Environment $env, ListForm $args)</span>
+<span class="x">    {</span>
+<span class="x">        $name = $args-&gt;car()-&gt;getSymbol();</span>
+<span class="x">        $env[$name] = $args-&gt;cdr()-&gt;car()-&gt;evaluate($env);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>It&#39;s trivial. The first argument is a symbol representing the name. Instead of
+evaluating it, the symbol is fetched and used as a key.</p>
+
+<p>The second argument is a form whose evaluation is assigned to the environment.
+It is fetched by getting the <code>car</code> of the <code>cdr</code> of the arguments.</p>
+
+<p>To make <code>define</code> available to the world, it just needs to be part of the
+standard environment:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias;</span>
+
+<span class="x">class Environment extends \ArrayObject</span>
+<span class="x">{</span>
+<span class="x">    public static function standard()</span>
+<span class="x">    {</span>
+<span class="x">        return new static([</span>
+<span class="x">            &#39;define&#39;    =&gt; new SpecialOp\DefineOp(),</span>
+
+<span class="x">            &#39;+&#39;         =&gt; new Func\PlusFunc(),</span>
+<span class="x">        ]);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>That&#39;s it, the <code>define</code> special operator is now available, so this should work:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">(define foo 42)
+foo
+</code></pre></div>
+<h2>Lambda</h2>
+
+<p>The term lambda describes an anonymous function. It originally was introduced
+as part of <em>lambda calculus</em>, a system for representing computation through
+functions.</p>
+
+<p>In Lisp, <code>lambda</code> is a special operator that represents a function as a value.
+All functions are anonymous, the only way of naming them is by assigning them
+to a variable using <code>define</code>.</p>
+
+<p>Here is a lambda with no arguments that always returns 42:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="k">lambda</span> <span class="p">()</span> <span class="mi">42</span><span class="p">)</span>
+</code></pre></div>
+<p>It could be invoked directly without giving it a name, yielding the return
+value:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">((</span><span class="k">lambda</span> <span class="p">()</span> <span class="mi">42</span><span class="p">))</span>
+</code></pre></div>
+<p>And defined as <code>the-answer</code>, it can be called using that name:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">define</span> <span class="nv">the-answer</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">()</span> <span class="mi">42</span><span class="p">))</span>
+<span class="p">(</span><span class="nv">the-answer</span><span class="p">)</span>
+</code></pre></div>
+<p>Here is the identity function, it returns any argument it receives:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">define</span> <span class="nb">identity</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">x</span><span class="p">)</span> <span class="nv">x</span><span class="p">))</span>
+</code></pre></div>
+<p>Here is an increment function, it returns the increment of the argument it
+receives:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">define</span> <span class="nv">increment</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">x</span><span class="p">)</span> <span class="p">(</span><span class="nb">+</span> <span class="nv">x</span> <span class="mi">1</span><span class="p">)))</span>
+</code></pre></div>
+<p>The first argument to the <code>lambda</code> special operator is a list of symbols
+representing argument names. All the following arguments are forms to be
+evaluated when the function gets called, in the context of that function.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\SpecialOp;</span>
+
+<span class="x">use Igorw\Ilias\Environment;</span>
+<span class="x">use Igorw\Ilias\Form\ListForm;</span>
+
+<span class="x">class LambdaOp implements SpecialOp</span>
+<span class="x">{</span>
+<span class="x">    public function evaluate(Environment $env, ListForm $args)</span>
+<span class="x">    {</span>
+<span class="x">        $symbols = $args-&gt;car()-&gt;toArray();</span>
+<span class="x">        $argNames = $this-&gt;getMappedSymbols($symbols);</span>
+
+<span class="x">        $bodyForms = $args-&gt;cdr()-&gt;toArray();</span>
+
+<span class="x">        return function () use ($env, $argNames, $bodyForms) {</span>
+<span class="x">            $subEnv = clone $env;</span>
+
+<span class="x">            $vars = array_combine($argNames, func_get_args());</span>
+<span class="x">            foreach ($vars as $name =&gt; $value) {</span>
+<span class="x">                $subEnv[$name] = $value;</span>
+<span class="x">            }</span>
+
+<span class="x">            $value = null;</span>
+<span class="x">            foreach ($bodyForms as $form) {</span>
+<span class="x">                $value = $form-&gt;evaluate($subEnv);</span>
+<span class="x">            }</span>
+<span class="x">            return $value;</span>
+<span class="x">        };</span>
+<span class="x">    }</span>
+
+<span class="x">    private function getMappedSymbols(array $symbols)</span>
+<span class="x">    {</span>
+<span class="x">        return array_map(</span>
+<span class="x">            function ($symbol) {</span>
+<span class="x">                return $symbol-&gt;getSymbol();</span>
+<span class="x">            },</span>
+<span class="x">            $symbols</span>
+<span class="x">        );</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>What is significant is that the function produced by <code>lambda</code> evaluates its
+body using a separate environment. The result of the last body form&#39;s
+evaluation is returned from the function.</p>
+
+<p>After adding the new <code>lambda</code> special operator to the environment it should be
+able to do all those things. According to lambda calculus we can stop now, as
+anything can be represented using lambdas alone. But we will continue
+nevertheless.</p>
+
+<h2>If</h2>
+
+<p>Finally, the <code>if</code> special operator takes three arguments: a predicate, a true-
+form and an else-form. The predicate is evaluated. If the result of that
+evaluation is truthy, then the true-form is evaluated. If it is falsy, the
+else-form is evaluated. The result of the evaluated form is returned.</p>
+
+<p>This is what an example usage looks like:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="k">if</span> <span class="p">(</span><span class="nb">=</span> <span class="nv">answer</span> <span class="mi">42</span><span class="p">)</span> <span class="ss">&#39;correct</span> <span class="ss">&#39;wrong</span><span class="p">)</span>
+</code></pre></div>
+<p>The implementation:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\SpecialOp;</span>
+
+<span class="x">use Igorw\Ilias\Environment;</span>
+<span class="x">use Igorw\Ilias\Form\ListForm;</span>
+
+<span class="x">class IfOp implements SpecialOp</span>
+<span class="x">{</span>
+<span class="x">    public function evaluate(Environment $env, ListForm $args)</span>
+<span class="x">    {</span>
+<span class="x">        $predicate = $args-&gt;car();</span>
+<span class="x">        $trueForm  = $args-&gt;cdr()-&gt;car();</span>
+<span class="x">        $elseForm  = $args-&gt;cdr()-&gt;cdr()-&gt;car();</span>
+
+<span class="x">        $form = ($predicate-&gt;evaluate($env)) ? $trueForm : $elseForm;</span>
+<span class="x">        return $form ? $form-&gt;evaluate($env) : null;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Easy.</p>
+
+<p>After adding it to the standard environment, it is available from within Lisp.</p>
+
+<h2>Fibonacci</h2>
+
+<p>Now that all of the pieces are in place it should be possible to use them. One
+way to demonstrate that is by implementing a function that calculates the
+fibonacci sequence.</p>
+
+<p>I know, it&#39;s a lame example. But is based on conditional recursion which means
+it is a good test for scoping, naming and lazy evaluation of conditionals.</p>
+
+<p>This is the (terribly inefficient) implementation of <code>fib</code> in Lisp:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">define</span> <span class="nv">fib</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">n</span><span class="p">)</span>
+    <span class="p">(</span><span class="k">if</span> <span class="p">(</span><span class="nb">&lt;</span> <span class="nv">n</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="nv">n</span>
+        <span class="p">(</span><span class="nb">+</span> <span class="p">(</span><span class="nv">fib</span> <span class="p">(</span><span class="nb">-</span> <span class="nv">n</span> <span class="mi">1</span><span class="p">))</span> <span class="p">(</span><span class="nv">fib</span> <span class="p">(</span><span class="nb">-</span> <span class="nv">n</span> <span class="mi">2</span><span class="p">))))))</span>
+</code></pre></div>
+<p>As you can see, I have added a <code>-</code> in addition to the <code>+</code> function.</p>
+
+<p>And now, for the very first time in history will we witness special forms...</p>
+
+<p>*<em>drumroll</em>*</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">fib</span> <span class="mi">23</span><span class="p">)</span>
+</code></pre></div>
+<p><em>And it takes 4 seconds to compute the result which is...</em></p>
+
+<p><code>28657</code>, which is correct! Now anything is possible. The future awaits us!</p>
+
+<p><a href="https://github.com/igorw/ilias">Source code: Ilias</a></p>
+
+<h2>Conclusion</h2>
+
+<p><center>
+    <img src="/sexpr/world-domination.png" alt="world domination">
+</center></p>
+
+<hr>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html"><strong>special-forms</strong></a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html">meta-eval</a>)</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

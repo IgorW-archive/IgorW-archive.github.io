@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>S-expressions: Meta-circular</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Apr 3rd, 2013
+    </div>
+
+    <div class="body">
+        <h1>S-expressions: Meta-circular</h1>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html"><strong>meta-eval</strong></a>)</p>
+
+<blockquote>
+<p>Yo dawg. I heard you like Lisp, so I wrote Lisp in Lisp, so you can Lisp
+while you Lisp.</p>
+
+<p><em>&mdash; John McCarthy</em></p>
+</blockquote>
+
+<h2>Meta-circular evaluator</h2>
+
+<p>A meta-circular evaluator is a self-interpreter of a homoiconic language.</p>
+
+<p>A self-interpreter is an interpreter written in the language it implements.
+Examples of this include <a href="https://github.com/jterrace/js.js">js.js</a> or
+Anthony&#39;s amazing <a href="https://github.com/ircmaxell/PHPPHP">PHPPHP</a>. In most
+languages they are massive, because the languages themselves are massive.</p>
+
+<p>Homoiconicity is another word for &quot;code as data&quot;. By treating source code as a
+data structure, parsing becomes trivial to non-existent. One prominent example
+of this is XSLT -- an XML program for manipulating XML documents.</p>
+
+<p>Lisp is <em>the</em> homoiconic language, since the entire syntax is based on lists,
+and macros allow you to manipulate and transform Lisp code.</p>
+
+<h2>Eval</h2>
+
+<p>John McCarthy published an ACM paper in 1960 that was titled <em>Recursive
+Functions of Symbolic Expressions and Their Computation by Machine, Part I</em>.
+This introduced not only the Lisp language but also included an implementation
+of Lisp in Lisp.</p>
+
+<p>In 2001, Paul Graham wrote an article titled <a href="http://www.paulgraham.com/rootsoflisp.html"><em>The Roots of
+Lisp</em></a>, which explains McCarthy&#39;s
+paper in a more modern context and includes a Common Lisp port of McCarthy&#39;s
+original <code>eval</code>.</p>
+
+<p>It&#39;s a whopping 62 lines in length:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">defun</span> <span class="nv">null.</span> <span class="p">(</span><span class="nv">x</span><span class="p">)</span>
+  <span class="p">(</span><span class="nb">eq</span> <span class="nv">x</span> <span class="o">&#39;</span><span class="p">()))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">and.</span> <span class="p">(</span><span class="nv">x</span> <span class="nv">y</span><span class="p">)</span>
+  <span class="p">(</span><span class="nb">cond</span> <span class="p">(</span><span class="nv">x</span> <span class="p">(</span><span class="nb">cond</span> <span class="p">(</span><span class="nv">y</span> <span class="ss">&#39;t</span><span class="p">)</span> <span class="p">(</span><span class="ss">&#39;t</span> <span class="o">&#39;</span><span class="p">())))</span>
+        <span class="p">(</span><span class="ss">&#39;t</span> <span class="o">&#39;</span><span class="p">())))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">not.</span> <span class="p">(</span><span class="nv">x</span><span class="p">)</span>
+  <span class="p">(</span><span class="nb">cond</span> <span class="p">(</span><span class="nv">x</span> <span class="o">&#39;</span><span class="p">())</span>
+        <span class="p">(</span><span class="ss">&#39;t</span> <span class="ss">&#39;t</span><span class="p">)))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">append.</span> <span class="p">(</span><span class="nv">x</span> <span class="nv">y</span><span class="p">)</span>
+  <span class="p">(</span><span class="nb">cond</span> <span class="p">((</span><span class="nv">null.</span> <span class="nv">x</span><span class="p">)</span> <span class="nv">y</span><span class="p">)</span>
+        <span class="p">(</span><span class="ss">&#39;t</span> <span class="p">(</span><span class="nb">cons</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">x</span><span class="p">)</span> <span class="p">(</span><span class="nv">append.</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">x</span><span class="p">)</span> <span class="nv">y</span><span class="p">)))))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">list.</span> <span class="p">(</span><span class="nv">x</span> <span class="nv">y</span><span class="p">)</span>
+  <span class="p">(</span><span class="nb">cons</span> <span class="nv">x</span> <span class="p">(</span><span class="nb">cons</span> <span class="nv">y</span> <span class="o">&#39;</span><span class="p">())))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">pair.</span> <span class="p">(</span><span class="nv">x</span> <span class="nv">y</span><span class="p">)</span>
+  <span class="p">(</span><span class="nb">cond</span> <span class="p">((</span><span class="nv">and.</span> <span class="p">(</span><span class="nv">null.</span> <span class="nv">x</span><span class="p">)</span> <span class="p">(</span><span class="nv">null.</span> <span class="nv">y</span><span class="p">))</span> <span class="o">&#39;</span><span class="p">())</span>
+        <span class="p">((</span><span class="nv">and.</span> <span class="p">(</span><span class="nv">not.</span> <span class="p">(</span><span class="nb">atom</span> <span class="nv">x</span><span class="p">))</span> <span class="p">(</span><span class="nv">not.</span> <span class="p">(</span><span class="nb">atom</span> <span class="nv">y</span><span class="p">)))</span>
+         <span class="p">(</span><span class="nb">cons</span> <span class="p">(</span><span class="nv">list.</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">x</span><span class="p">)</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">y</span><span class="p">))</span>
+               <span class="p">(</span><span class="nv">pair.</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">x</span><span class="p">)</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">y</span><span class="p">))))))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">assoc.</span> <span class="p">(</span><span class="nv">x</span> <span class="nv">y</span><span class="p">)</span>
+  <span class="p">(</span><span class="nb">cond</span> <span class="p">((</span><span class="nb">eq</span> <span class="p">(</span><span class="nb">caar</span> <span class="nv">y</span><span class="p">)</span> <span class="nv">x</span><span class="p">)</span> <span class="p">(</span><span class="nb">cadar</span> <span class="nv">y</span><span class="p">))</span>
+        <span class="p">(</span><span class="ss">&#39;t</span> <span class="p">(</span><span class="nv">assoc.</span> <span class="nv">x</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">y</span><span class="p">)))))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">eval.</span> <span class="p">(</span><span class="nv">e</span> <span class="nv">a</span><span class="p">)</span>
+  <span class="p">(</span><span class="nb">cond</span>
+    <span class="p">((</span><span class="nb">atom</span> <span class="nv">e</span><span class="p">)</span> <span class="p">(</span><span class="nv">assoc.</span> <span class="nv">e</span> <span class="nv">a</span><span class="p">))</span>
+    <span class="p">((</span><span class="nb">atom</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">e</span><span class="p">))</span>
+     <span class="p">(</span><span class="nb">cond</span>
+       <span class="p">((</span><span class="nb">eq</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">e</span><span class="p">)</span> <span class="ss">&#39;quote</span><span class="p">)</span> <span class="p">(</span><span class="nb">cadr</span> <span class="nv">e</span><span class="p">))</span>
+       <span class="p">((</span><span class="nb">eq</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">e</span><span class="p">)</span> <span class="ss">&#39;atom</span><span class="p">)</span>  <span class="p">(</span><span class="nb">atom</span>   <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">cadr</span> <span class="nv">e</span><span class="p">)</span> <span class="nv">a</span><span class="p">)))</span>
+       <span class="p">((</span><span class="nb">eq</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">e</span><span class="p">)</span> <span class="ss">&#39;eq</span><span class="p">)</span>    <span class="p">(</span><span class="nb">eq</span>     <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">cadr</span> <span class="nv">e</span><span class="p">)</span> <span class="nv">a</span><span class="p">)</span>
+                                    <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">caddr</span> <span class="nv">e</span><span class="p">)</span> <span class="nv">a</span><span class="p">)))</span>
+       <span class="p">((</span><span class="nb">eq</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">e</span><span class="p">)</span> <span class="ss">&#39;car</span><span class="p">)</span>   <span class="p">(</span><span class="nb">car</span>    <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">cadr</span> <span class="nv">e</span><span class="p">)</span> <span class="nv">a</span><span class="p">)))</span>
+       <span class="p">((</span><span class="nb">eq</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">e</span><span class="p">)</span> <span class="ss">&#39;cdr</span><span class="p">)</span>   <span class="p">(</span><span class="nb">cdr</span>    <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">cadr</span> <span class="nv">e</span><span class="p">)</span> <span class="nv">a</span><span class="p">)))</span>
+       <span class="p">((</span><span class="nb">eq</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">e</span><span class="p">)</span> <span class="ss">&#39;cons</span><span class="p">)</span>  <span class="p">(</span><span class="nb">cons</span>   <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">cadr</span> <span class="nv">e</span><span class="p">)</span> <span class="nv">a</span><span class="p">)</span>
+                                    <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">caddr</span> <span class="nv">e</span><span class="p">)</span> <span class="nv">a</span><span class="p">)))</span>
+       <span class="p">((</span><span class="nb">eq</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">e</span><span class="p">)</span> <span class="ss">&#39;cond</span><span class="p">)</span>  <span class="p">(</span><span class="nv">evcon.</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">e</span><span class="p">)</span> <span class="nv">a</span><span class="p">))</span>
+       <span class="p">(</span><span class="ss">&#39;t</span> <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">cons</span> <span class="p">(</span><span class="nv">assoc.</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">e</span><span class="p">)</span> <span class="nv">a</span><span class="p">)</span>
+                        <span class="p">(</span><span class="nb">cdr</span> <span class="nv">e</span><span class="p">))</span>
+                  <span class="nv">a</span><span class="p">))))</span>
+    <span class="p">((</span><span class="nb">eq</span> <span class="p">(</span><span class="nb">caar</span> <span class="nv">e</span><span class="p">)</span> <span class="ss">&#39;label</span><span class="p">)</span>
+     <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">cons</span> <span class="p">(</span><span class="nb">caddar</span> <span class="nv">e</span><span class="p">)</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">e</span><span class="p">))</span>
+            <span class="p">(</span><span class="nb">cons</span> <span class="p">(</span><span class="nv">list.</span> <span class="p">(</span><span class="nb">cadar</span> <span class="nv">e</span><span class="p">)</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">e</span><span class="p">))</span> <span class="nv">a</span><span class="p">)))</span>
+    <span class="p">((</span><span class="nb">eq</span> <span class="p">(</span><span class="nb">caar</span> <span class="nv">e</span><span class="p">)</span> <span class="ss">&#39;lambda</span><span class="p">)</span>
+     <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">caddar</span> <span class="nv">e</span><span class="p">)</span>
+            <span class="p">(</span><span class="nv">append.</span> <span class="p">(</span><span class="nv">pair.</span> <span class="p">(</span><span class="nb">cadar</span> <span class="nv">e</span><span class="p">)</span> <span class="p">(</span><span class="nv">evlis.</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">e</span><span class="p">)</span> <span class="nv">a</span><span class="p">))</span>
+                     <span class="nv">a</span><span class="p">)))))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">evcon.</span> <span class="p">(</span><span class="nv">c</span> <span class="nv">a</span><span class="p">)</span>
+  <span class="p">(</span><span class="nb">cond</span> <span class="p">((</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">caar</span> <span class="nv">c</span><span class="p">)</span> <span class="nv">a</span><span class="p">)</span>
+         <span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="nb">cadar</span> <span class="nv">c</span><span class="p">)</span> <span class="nv">a</span><span class="p">))</span>
+        <span class="p">(</span><span class="ss">&#39;t</span> <span class="p">(</span><span class="nv">evcon.</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">c</span><span class="p">)</span> <span class="nv">a</span><span class="p">))))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">evlis.</span> <span class="p">(</span><span class="nv">m</span> <span class="nv">a</span><span class="p">)</span>
+  <span class="p">(</span><span class="nb">cond</span> <span class="p">((</span><span class="nv">null.</span> <span class="nv">m</span><span class="p">)</span> <span class="o">&#39;</span><span class="p">())</span>
+        <span class="p">(</span><span class="ss">&#39;t</span> <span class="p">(</span><span class="nb">cons</span> <span class="p">(</span><span class="nv">eval.</span>  <span class="p">(</span><span class="nb">car</span> <span class="nv">m</span><span class="p">)</span> <span class="nv">a</span><span class="p">)</span>
+                  <span class="p">(</span><span class="nv">evlis.</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">m</span><span class="p">)</span> <span class="nv">a</span><span class="p">)))))</span>
+</code></pre></div>
+<p>Yes. That&#39;s all it takes to write Lisp in Lisp.</p>
+
+<p>I&#39;m not going to explain all of the details. I highly recommend you read
+<em>Roots of Lisp</em> if you&#39;re interested.</p>
+
+<p>But how about running this inside of Ilias, the PHP implementation of Lisp
+covered in previous posts?</p>
+
+<h2>Primitives</h2>
+
+<p>The original Lisp consists of seven primitive operators:</p>
+
+<ul>
+<li><p><strong>(quote x)</strong>: Quotes a value. <code>&#39;foo</code> is a shortcut for <code>(quote foo)</code>.</p></li>
+<li><p><strong>(atom? x)</strong>: Checks if a value is an atom. <code>(atom? (quote foo))</code> returns
+<code>true</code>.</p></li>
+<li><p><strong>(eq? x y)</strong>: Checks if two values are equal.</p></li>
+<li><p><strong>(car x)</strong>: Returns the first element of the list <code>x</code>.</p></li>
+<li><p><strong>(cdr x)</strong>: Returns the rest of the list <code>x</code> (everything but the first
+element).</p></li>
+<li><p><strong>(cons x y)</strong>: Constructs a list by prepending <code>x</code> to the list <code>y</code>.</p></li>
+</ul>
+
+<p><code>(cons (quote foo) (quote (bar)))</code> returns the list <code>(foo bar)</code>.</p>
+
+<ul>
+<li><strong>(cond (p1 e1) ... (pn en))</strong>: Conditional execution. Takes a list of pairs.</li>
+</ul>
+
+<p>The first element of each pair is a predicate, the second is an expression.
+  If the predicate evaluates to <code>true</code>, the expression is evaluated and its
+  return value returned. If the predicate evaluates to <code>false</code>, the next
+  predicate is checked.</p>
+
+<p>You can think of it as a mix between <code>if</code> and <code>switch</code>.</p>
+
+<p>As it turns out, none of these have been implemented yet in Ilias.</p>
+
+<p>Most of them can easily be implemented as functions that operate on values and
+arrays:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\Func;</span>
+
+<span class="x">class AtomFunc</span>
+<span class="x">{</span>
+<span class="x">    public function __invoke($value)</span>
+<span class="x">    {</span>
+<span class="x">        return is_string($value);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+
+<span class="x">class CarFunc</span>
+<span class="x">{</span>
+<span class="x">    public function __invoke(array $list)</span>
+<span class="x">    {</span>
+<span class="x">        return array_shift($list);</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+
+<span class="x">class CdrFunc</span>
+<span class="x">{</span>
+<span class="x">    public function __invoke(array $list)</span>
+<span class="x">    {</span>
+<span class="x">        array_shift($list);</span>
+<span class="x">        return $list;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+
+<span class="x">class ConsFunc</span>
+<span class="x">{</span>
+<span class="x">    public function __invoke($value, array $list)</span>
+<span class="x">    {</span>
+<span class="x">        array_unshift($list, $value);</span>
+<span class="x">        return $list;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+
+<span class="x">class EqFunc</span>
+<span class="x">{</span>
+<span class="x">    public function __invoke($a, $b)</span>
+<span class="x">    {</span>
+<span class="x">        return $a === $b;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>The remaining two, <code>quote</code> and <code>cond</code>, need to be implemented as special
+forms. Quote needs to treat its argument&#39;s source as data instead of
+evaluating it. Cond needs to evaluate parts conditionally.</p>
+
+<p>Here is <code>cond</code>, it just loops over the pairs and tests the predicates:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\SpecialOp;</span>
+
+<span class="x">use Igorw\Ilias\Environment;</span>
+<span class="x">use Igorw\Ilias\Form\ListForm;</span>
+
+<span class="x">class CondOp implements SpecialOp</span>
+<span class="x">{</span>
+<span class="x">    public function evaluate(Environment $env, ListForm $args)</span>
+<span class="x">    {</span>
+<span class="x">        $pairs = $args-&gt;toArray();</span>
+
+<span class="x">        foreach ($pairs as $pair) {</span>
+<span class="x">            list($predicate, $trueForm) = $pair-&gt;toArray();</span>
+<span class="x">            if ($predicate-&gt;evaluate($env)) {</span>
+<span class="x">                return $trueForm-&gt;evaluate($env);</span>
+<span class="x">            }</span>
+<span class="x">        }</span>
+
+<span class="x">        return null;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<h2>Quote</h2>
+
+<p>Quote is a bit trickier, because there is a design flaw that needs to be fixed
+first. Currently quoted values contain their values as a form tree.</p>
+
+<p>Basically, <code>&#39;(foo bar)</code> becomes:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">new QuoteForm(</span>
+<span class="x">    new ListForm([</span>
+<span class="x">        new Symbol(&#39;foo&#39;),</span>
+<span class="x">        new Symbol(&#39;bar&#39;),</span>
+<span class="x">    ])</span>
+<span class="x">)</span>
+</code></pre></div>
+<p>This makes it really hard to work with as data. It would be a lot easier if it
+were:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">new QuoteForm([&#39;foo&#39;, &#39;bar&#39;])</span>
+</code></pre></div>
+<p>This requires two changes. For one, the <code>FormTreeBuilder</code> should no longer
+parse the contents of quote expressions. Next, the <code>MacroOp</code> needs to properly
+handle quoted values and expand them as needed.</p>
+
+<p>With those two changes, the implementation of <code>quote</code> is a snap:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">namespace Igorw\Ilias\SpecialOp;</span>
+
+<span class="x">use Igorw\Ilias\Environment;</span>
+<span class="x">use Igorw\Ilias\Form\ListForm;</span>
+<span class="x">use Igorw\Ilias\Form\QuoteForm;</span>
+
+<span class="x">class QuoteOp implements SpecialOp</span>
+<span class="x">{</span>
+<span class="x">    public function evaluate(Environment $env, ListForm $args)</span>
+<span class="x">    {</span>
+<span class="x">        list($value) = $args-&gt;getAst();</span>
+<span class="x">        return $value;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>And with that, the seven primitive operators are implemented. After adding
+them to the <code>Environment</code>, they can be called.</p>
+
+<h2>Common Lispisms</h2>
+
+<p>Paul Graham uses some Common Lisp specific functions. They are mostly
+abbreviated versions of list manipulation functions. I will just add them in
+Lisp directly:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">define</span> <span class="nb">caar</span>
+  <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">l</span><span class="p">)</span>
+    <span class="p">(</span><span class="nb">car</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">l</span><span class="p">))))</span>
+
+<span class="p">(</span><span class="nv">define</span> <span class="nb">cadr</span>
+  <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">l</span><span class="p">)</span>
+    <span class="p">(</span><span class="nb">car</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">l</span><span class="p">))))</span>
+
+<span class="p">(</span><span class="nv">define</span> <span class="nb">cadar</span>
+  <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">l</span><span class="p">)</span>
+    <span class="p">(</span><span class="nb">car</span> <span class="p">(</span><span class="nb">cdr</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">l</span><span class="p">)))))</span>
+
+<span class="p">(</span><span class="nv">define</span> <span class="nb">caddar</span>
+  <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">l</span><span class="p">)</span>
+    <span class="p">(</span><span class="nb">car</span> <span class="p">(</span><span class="nb">cdr</span> <span class="p">(</span><span class="nb">cdr</span> <span class="p">(</span><span class="nb">car</span> <span class="nv">l</span><span class="p">))))))</span>
+
+<span class="p">(</span><span class="nv">define</span> <span class="nb">caddr</span>
+  <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">l</span><span class="p">)</span>
+    <span class="p">(</span><span class="nb">car</span> <span class="p">(</span><span class="nb">cdr</span> <span class="p">(</span><span class="nb">cdr</span> <span class="nv">l</span><span class="p">)))))</span>
+</code></pre></div>
+<h2>Running it</h2>
+
+<p>Now all of the missing pieces have been added. It should be possible to run
+<code>eval</code> now!</p>
+
+<p>Let&#39;s run a simple <code>cons</code>, to construct a list. The expected output is <code>(foo
+bar baz)</code>:</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nb">cons</span> <span class="p">(</span><span class="k">quote</span> <span class="nv">foo</span><span class="p">)</span>
+      <span class="p">(</span><span class="k">quote</span> <span class="p">(</span><span class="nv">bar</span> <span class="nv">baz</span><span class="p">))</span>
+</code></pre></div>
+<p>Here is how you run it through <code>eval</code>. The first argument is the expression to
+be evaluated, the second argument is the environment, which is empty in this
+case.</p>
+<div class="highlight"><pre><code class="language-lisp" data-lang="lisp"><span class="p">(</span><span class="nv">eval.</span> <span class="p">(</span><span class="k">quote</span> <span class="p">(</span><span class="nb">cons</span> <span class="p">(</span><span class="k">quote</span> <span class="nv">foo</span><span class="p">)</span>
+                    <span class="p">(</span><span class="k">quote</span> <span class="p">(</span><span class="nv">bar</span> <span class="nv">baz</span><span class="p">))))</span>
+       <span class="p">(</span><span class="k">quote</span> <span class="p">()))</span>
+</code></pre></div>
+<p>And the result is:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">[&#39;foo&#39;, &#39;bar&#39;, &#39;baz&#39;]</span>
+</code></pre></div>
+<p>Awesome.</p>
+
+<h2>Conclusion</h2>
+
+<p>It&#39;s mind-blowing how little code it takes to write a meta-circular evaluator
+in Lisp.</p>
+
+<p>It has support not only for primitive list operations like <code>cons</code> but also
+allows you to define functions, variables, or even implement a
+meta-meta-circular evaluator inside of it.</p>
+
+<blockquote>
+<p>Note: I was not able to get recursion via Y combinator to work, so there&#39;s
+probably still some bugs lurking somewhere.</p>
+
+<p><em>Edit: This is due to McCarthy&#39;s eval not supporting lexical closures.</em></p>
+</blockquote>
+
+<h2>Further reading</h2>
+
+<ul>
+<li><a href="http://www-formal.stanford.edu/jmc/recursive.html">John McCarthy&#39;s 1960 paper</a></li>
+<li><a href="http://www.amazon.com/Structure-Interpretation-Computer-Programs-Engineering/dp/0262510871">Structure and Interpretation of Computer Programs</a></li>
+<li><a href="https://github.com/igorw/ilias/blob/master/examples/mccarthy-eval.php">Source code: Ilias <code>examples/mccarthy-eval.php</code></a></li>
+</ul>
+
+<hr>
+
+<p>(<a href="/2012/12/06/sexpr.html">sexpr</a>
+&nbsp;<a href="/2012/12/07/sexpr-lexer.html">lexer</a>
+&nbsp;<a href="/2012/12/08/sexpr-reader.html">reader</a>
+&nbsp;<a href="/2012/12/12/sexpr-eval.html">eval</a>
+&nbsp;<a href="/2012/12/13/sexpr-forms.html">forms</a>
+&nbsp;<a href="/2012/12/14/sexpr-special-forms.html">special-forms</a>
+&nbsp;<a href="/2012/12/29/sexpr-macros.html">macros</a>
+&nbsp;<a href="/2012/12/30/sexpr-walker.html">walker</a>
+&nbsp;<a href="/2013/04/03/sexpr-meta-eval.html"><strong>meta-eval</strong></a>)</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

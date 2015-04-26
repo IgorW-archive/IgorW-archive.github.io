@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: Shunting-yard</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 3rd, 2013
+    </div>
+
+    <div class="body">
+        <style>
+.formula2 {
+    text-align: center;
+    margin-top: 20px;
+    margin-bottom: 30px;
+    font-size: 3em;
+}
+</style>
+
+<h1>Stack Machines: Shunting-yard</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html"><strong>shunting-yard</strong></a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<p>The RPN calculator (see previous post) was quite easy to implement, but in
+order to use it, everything must be written backwards. Re-gaining infix
+notation would be sweet.</p>
+
+<p>Luckily, it looks like Dijkstra might have us covered with his <strong>shunting-yard
+algorithm</strong>.</p>
+
+<h2>Precedence</h2>
+
+<p>Infix notation requires rules that define the precedence of operators. Going
+back to the example of the previous post, the expression:</p>
+
+<div class="formula2">1 + 2 * 3</div>
+
+<p>Is to be interpreted as:</p>
+
+<div class="formula2">1 + (2 * 3)</div>
+
+<p>Because the <code>*</code> operator has precedence over the <code>+</code> operator. It binds more
+strongly, the operator with the highest precedence groups its operands,
+enclosing them in invisible parentheses.</p>
+
+<h2>Associativity</h2>
+
+<p>Another consideration is associativity<sup><a id="ft-1-src"></a><a
+href="#ft-1">1</a></sup>. Generally speaking, associativity defines the
+grouping of sub-expressions within the same level of precedence.</p>
+
+<p>An example would be:</p>
+
+<div class="formula2">1 + 2 + 3</div>
+
+<p>Because <code>+</code> is associative, it can associate to the left and the right without
+changing the meaning or result.</p>
+
+<p>Associating to the left:</p>
+
+<div class="formula2">((1 + 2) + 3)</div>
+
+<p>Associating to the right:</p>
+
+<div class="formula2">(1 + (2 + 3))</div>
+
+<p>Both produce the same result: <code>6</code>.</p>
+
+<hr>
+
+<p>However, if we try the same with <code>-</code>, which is non-associative, it will not
+produce consistent results.</p>
+
+<p>If we take the expression:</p>
+
+<div class="formula2">3 - 2 - 1</div>
+
+<p>Associating to the left:</p>
+
+<div class="formula2">((3 - 2) - 1)</div>
+
+<p>Associating to the right:</p>
+
+<div class="formula2">(3 - (2 - 1))</div>
+
+<p>Left associativity produces <code>0</code>, right associativity produces <code>2</code>.</p>
+
+<hr>
+
+<p><strong>Conclusion:</strong> The correct associativity in this case is <em>left</em>, and the
+result we would expect is <code>0</code>.</p>
+
+<h2>Parentheses</h2>
+
+<p>In addition to the implicit grouping between terms and expressions there can
+also be explicit grouping through parentheses, that supersedes the two
+previous forms of grouping.</p>
+
+<p>These must also be taken into account when interpreting an expression.</p>
+
+<h2>Compilers</h2>
+
+<p>Enough math already. Let&#39;s talk about compilers.</p>
+
+<p>A compiler takes a high-level language and translates it into some sort of
+low-level machine code. Mathematical expressions are a subset of many
+high-level programming languages.</p>
+
+<p>In 1960, the dutch computer scientist Edsger Dijkstra was working on a
+compiler for ALGOL60. Back then he referred to it as a &quot;translator&quot;. When
+faced with the challenge of precedence, he came up with an algorithm for
+resolving the precedence of these expressions.</p>
+
+<p>This algorithm is known as the <strong>shunting-yard algorithm</strong>.</p>
+
+<p>What it does is translate an expression from infix notation to something that
+is easier to understand for a machine: <strong>Reverse-polish notation</strong>, or postfix
+notation.</p>
+
+<p>What this means is that we can take an expression as an input, then use
+shunting-yard to <em>compile</em> that expression into RPN, and finally use the
+<em>existing</em> RPN calculator to run it!</p>
+
+<h2>Shunting yard</h2>
+
+<blockquote>
+<p>The translation process shows much resemblance to shunting at a three way
+railroad junction in the following form.</p>
+
+<p><center>
+    <img src="/img/stack-machine-shunting-yard/shunting-yard.png" alt="shunting yard illustration from original paper">
+</center></p>
+</blockquote>
+
+<p>I will not describe the shunting-yard algorithm in detail here. I will however
+try to give a high-level description of what it does.</p>
+
+<p>The process starts with a set of input tokens, an empty stack for temporarily
+stashing tokens and an output queue for placing the output.</p>
+
+<p>Based on pre-configured precedence and associativity rules, the tokens are
+shunted from infix to postfix in a very memory efficient way.</p>
+
+<p>Read <a href="http://en.wikipedia.org/wiki/Shunting-yard_algorithm">the Wikipedia page</a>
+or <a href="http://www.cs.utexas.edu/%7EEWD/MCReps/MR35.PDF">the original paper</a> for a
+more thorough explanation.</p>
+
+<h2>Implementation</h2>
+
+<p>Without further ado, here is an implementation of shunting-yard:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function shunting_yard(array $tokens, array $operators)</span>
+<span class="x">{</span>
+<span class="x">    $stack = new \SplStack();</span>
+<span class="x">    $output = new \SplQueue();</span>
+
+<span class="x">    foreach ($tokens as $token) {</span>
+<span class="x">        if (is_numeric($token)) {</span>
+<span class="x">            $output-&gt;enqueue($token);</span>
+<span class="x">        } elseif (isset($operators[$token])) {</span>
+<span class="x">            $o1 = $token;</span>
+<span class="x">            while (</span>
+<span class="x">                has_operator($stack, $operators)</span>
+<span class="x">                &amp;&amp; ($o2 = $stack-&gt;top())</span>
+<span class="x">                &amp;&amp; has_lower_precedence($o1, $o2, $operators)</span>
+<span class="x">            ) {</span>
+<span class="x">                $output-&gt;enqueue($stack-&gt;pop());</span>
+<span class="x">            }</span>
+<span class="x">            $stack-&gt;push($o1);</span>
+<span class="x">        } elseif (&#39;(&#39; === $token) {</span>
+<span class="x">            $stack-&gt;push($token);</span>
+<span class="x">        } elseif (&#39;)&#39; === $token) {</span>
+<span class="x">            while (count($stack) &gt; 0 &amp;&amp; &#39;(&#39; !== $stack-&gt;top()) {</span>
+<span class="x">                $output-&gt;enqueue($stack-&gt;pop());</span>
+<span class="x">            }</span>
+
+<span class="x">            if (count($stack) === 0) {</span>
+<span class="x">                throw new \InvalidArgumentException(sprintf(&#39;Mismatched parenthesis in input: %s&#39;, json_encode($tokens)));</span>
+<span class="x">            }</span>
+
+<span class="x">            // pop off &#39;(&#39;</span>
+<span class="x">            $stack-&gt;pop();</span>
+<span class="x">        } else {</span>
+<span class="x">            throw new \InvalidArgumentException(sprintf(&#39;Invalid token: %s&#39;, $token));</span>
+<span class="x">        }</span>
+<span class="x">    }</span>
+
+<span class="x">    while (has_operator($stack, $operators)) {</span>
+<span class="x">        $output-&gt;enqueue($stack-&gt;pop());</span>
+<span class="x">    }</span>
+
+<span class="x">    if (count($stack) &gt; 0) {</span>
+<span class="x">        throw new \InvalidArgumentException(sprintf(&#39;Mismatched parenthesis or misplaced number in input: %s&#39;, json_encode($tokens)));</span>
+<span class="x">    }</span>
+
+<span class="x">    return iterator_to_array($output);</span>
+<span class="x">}</span>
+
+<span class="x">function has_operator(\SplStack $stack, array $operators)</span>
+<span class="x">{</span>
+<span class="x">    return count($stack) &gt; 0 &amp;&amp; ($top = $stack-&gt;top()) &amp;&amp; isset($operators[$top]);</span>
+<span class="x">}</span>
+
+<span class="x">function has_lower_precedence($o1, $o2, array $operators)</span>
+<span class="x">{</span>
+<span class="x">    $op1 = $operators[$o1];</span>
+<span class="x">    $op2 = $operators[$o2];</span>
+<span class="x">    return (&#39;left&#39; === $op1[&#39;associativity&#39;]</span>
+<span class="x">        &amp;&amp; $op1[&#39;precedence&#39;] === $op2[&#39;precedence&#39;])</span>
+<span class="x">        || $op1[&#39;precedence&#39;] &lt; $op2[&#39;precedence&#39;];</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>In this case, <code>$operators</code> is a mapping of operator symbols to some metadata
+describing their precedence and associativity. A higher precedence number
+means higher priority.</p>
+
+<p>An example of such a mapping:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$operators = [</span>
+<span class="x">    &#39;+&#39; =&gt; [&#39;precedence&#39; =&gt; 0, &#39;associativity&#39; =&gt; &#39;left&#39;],</span>
+<span class="x">    &#39;-&#39; =&gt; [&#39;precedence&#39; =&gt; 0, &#39;associativity&#39; =&gt; &#39;left&#39;],</span>
+<span class="x">    &#39;*&#39; =&gt; [&#39;precedence&#39; =&gt; 1, &#39;associativity&#39; =&gt; &#39;left&#39;],</span>
+<span class="x">    &#39;/&#39; =&gt; [&#39;precedence&#39; =&gt; 1, &#39;associativity&#39; =&gt; &#39;left&#39;],</span>
+<span class="x">    &#39;%&#39; =&gt; [&#39;precedence&#39; =&gt; 1, &#39;associativity&#39; =&gt; &#39;left&#39;],</span>
+<span class="x">];</span>
+</code></pre></div>
+<p>While all of those associate to the left, there are operations that commonly
+associate to the right, such as exponentiation. <code>2 ^ 3 ^ 4</code> should be
+interpreted as <code>(2 ^ (3 ^ 4))</code><sup><a id="ft-2-src"></a><a
+href="#ft-2">2</a></sup>.</p>
+
+<p>Another common right-associative operator in programming languages is the
+conditional ternary operator <code>?:</code><sup><a id="ft-3-src"></a><a
+href="#ft-3">3</a></sup>.</p>
+
+<h2>Compiling to RPN</h2>
+
+<p>Time for an actual test run of this shunting yard infix to postfix compiler!</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$tokens = explode(&#39; &#39;, &#39;1 + 2 * 3&#39;);</span>
+<span class="x">$rpn = shunting_yard($tokens, $operators);</span>
+<span class="x">var_dump($rpn);</span>
+</code></pre></div>
+<p>It produces the sequence: <code>1 2 3 * +</code>. This looks correct, it should evaluate
+to <code>7</code>.</p>
+
+<p>But let&#39;s feed it to the existing calculator and see what happens.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$tokens = explode(&#39; &#39;, &#39;1 + 2 * 3&#39;);</span>
+<span class="x">$rpn = shunting_yard($tokens, $operators);</span>
+<span class="x">var_dump(execute($rpn));</span>
+</code></pre></div>
+<p>It agrees!</p>
+
+<p>Now we have a fully-functional infix calculator that is the composition of an
+infix-to-postfix compiler and a postfix calculator!</p>
+
+<p>You will find that it supports not only the operators <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> and
+<code>%</code>, but also parentheses that are completely removed from the resulting RPN.</p>
+
+<p>In addition to that, adding support for new operators is as easy as adding an
+entry to <code>$operators</code> and an implementation to the <code>switch</code> statement in
+<code>execute</code>.</p>
+
+<h2>Summary</h2>
+
+<ul>
+<li>Shunting-yard translates infix to postfix.</li>
+<li>Implementation is quite straight-forward.</li>
+<li>Hey, look! It&#39;s a little compiler!</li>
+</ul>
+
+<p><center>
+    <img src="/img/stack-machine-shunting-yard/composite.png" alt="composite">
+</center></p>
+
+<hr>
+
+<ol>
+<li><p><a id="ft-1"></a>Not to be confused with <em>commutativity</em> which defines
+whether the order of operands matters. <a id="ft-1" href="#ft-1-src">↩</a></p></li>
+<li><p><a id="ft-2"></a>I used the <code>^</code> symbol for exponentiation, in many
+languages something like <code>**</code> is used instead. <a id="ft-2"
+href="#ft-2-src">↩</a></p></li>
+<li><p><a id="ft-3"></a>Too bad PHP messed that one up. <a id="ft-3"
+href="#ft-3-src">↩</a></p></li>
+</ol>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html"><strong>shunting-yard</strong></a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

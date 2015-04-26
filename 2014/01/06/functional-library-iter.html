@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Functional Library: Iteration</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Jan 6th, 2014
+    </div>
+
+    <div class="body">
+        <h1>Functional Library: Iteration</h1>
+
+<p>Welcome to the functional library. This series will explore the state of
+functional programming in PHP and highlight some libraries for common tasks.</p>
+
+<p>This post will look at iteration and lazy operations based on a sequential
+abstraction.</p>
+
+<p><center>
+    <img src="/img/funlib-iter/abc.png" alt="a b c">
+</center></p>
+
+<h2>Sequence</h2>
+
+<p>Yes, you heard right. Sequential abstraction. That&#39;s a fancy shmancy word for
+something we already have in PHP called <code>Iterator</code>. An iterator is really just
+an object that represents a <strong>stream</strong> of values.</p>
+
+<p>As a consumer of an iterator this really just means one thing. You can
+<strong>foreach</strong> over it, like this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">foreach ($users as $user) {</span>
+<span class="x">    echo $user[&#39;name&#39;].&quot;\n&quot;;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>But there&#39;s a few other properties of iterators that are quite interesting.
+One in particular is <strong>laziness</strong>.</p>
+
+<p>Laziness means that the iterator is able to fetch data on demand, which allows
+you to process that data as it arrives (reducing latency) and only keep a bit
+of it in memory at a time (reducing overall memory consumption).</p>
+
+<blockquote>
+<p>Note: Of course there are trade-offs and lazy-everything isn&#39;t always the
+best solution. For example, disk seeks tend to take some time. So batching
+reads in large enough chunks is still important for overall performance.</p>
+</blockquote>
+
+<p>Now. One problem is that once you use <code>foreach</code>, it will start consuming the
+iterator on the spot. And thus you instantly lose the laziness. It is possible
+to retain it though, and I will show you how.</p>
+
+<h2>Map</h2>
+
+<p>By using functional primitives that operate on sequences, you can describe
+high-level transformations on sequences.</p>
+
+<p>How often have you written this piece of code:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$names = [];</span>
+<span class="x">foreach ($users as $user) {</span>
+<span class="x">    $names[] = $user[&#39;name&#39;];</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Have you ever thought to yourself <em>there must be a better way</em>?</p>
+
+<p>There is a better way.<sup><a id="ft-1-src"></a><a
+href="#ft-1">1</a></sup></p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">use function iter\map, iter\fn\index;</span>
+
+<span class="x">$names = map(index(&#39;name&#39;), $users);</span>
+</code></pre></div>
+<p>All of the boilerplate is gone. It is now just one single line that describes
+the transformation.</p>
+
+<p>It gets better. The laziness is no longer broken. <code>map</code> does not take an array
+of values, it takes an <em>iterable</em> of values. And it returns, you guessed it,
+an <em>iterable</em> of mapped values.</p>
+
+<p>How does it do that? We&#39;ll get there. But first, let&#39;s define what <code>map</code>
+actually is.</p>
+
+<p><strong>map</strong> is a function that takes a function and a sequence. It returns a new
+sequence where the function has been called on every element of the input
+sequence.</p>
+
+<p><center>
+    <img src="/img/funlib-iter/map.png" alt="map">
+</center></p>
+
+<p>Because you are forced to pass in a function, the resulting code will be more
+modular. It&#39;s less convenient to nest things, like it was with <code>foreach</code>, and
+I&#39;d argue that that is actually a good thing.</p>
+
+<p>Another advantage is that <code>map</code> deals with values and returns you a new value
+that is much safer than modifying existing arrays in a loop.</p>
+
+<h2>Filter</h2>
+
+<p>It turns out that <code>map</code> is just one of many high-level iteration functions. I will show you a few more.</p>
+
+<p>How often have you written this piece of code:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$admins = [];</span>
+<span class="x">foreach ($users as $user) {</span>
+<span class="x">    if (is_admin($user)) {</span>
+<span class="x">        $admins[] = $user;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Have you ever thought to yourself <em>there must be a better way</em>?</p>
+
+<p>There is a better way.<sup><a id="ft-2-src"></a><a
+href="#ft-2">2</a></sup></p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">use function iter\filter;</span>
+
+<span class="x">$admins = filter(&#39;project\user\is_admin&#39;, $users);</span>
+</code></pre></div>
+<p>All of the boilerplate is gone. It is now just one single line that describes
+the filtering.</p>
+
+<p><strong>filter</strong> is a function that takes a predicate and a sequence. It returns a
+new sequence that only contains the elements for which the predicate returned
+true.</p>
+
+<p><center>
+    <img src="/img/funlib-iter/filter.png" alt="filter">
+</center></p>
+
+<p>Now remember every time you wrote a loop that did both filtering and mapping
+in the body. Since there are now two separate functions for those, you can
+separate those responsibilities. First filter, then map.</p>
+
+<p>It gets better: Because both <code>filter</code> and <code>map</code> are lazy, the result of
+chaining them will also be lazy. This allows you to compose lazy workflows
+that only get processed on demand.</p>
+
+<h2>Any</h2>
+
+<p>How often have you written this piece of code:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$admins_present = false;</span>
+<span class="x">foreach ($users as $user) {</span>
+<span class="x">    if (is_admin($user)) {</span>
+<span class="x">        $admins_present = true;</span>
+<span class="x">        break;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Have you ever thought to yourself <em>there must be a better way</em>?</p>
+
+<p>There is a better way.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">use function iter\any;</span>
+
+<span class="x">$admins_present = any(&#39;acme\is_admin&#39;, $users);</span>
+</code></pre></div>
+<p>All of the boilerplate is gone. It is now just one single line that describes
+the search.</p>
+
+<p><strong>any</strong> is a function that takes a predicate and a sequence. It returns true
+as soon as the predicate returns true. It returns false if the end of the
+sequence is reached without finding a match.</p>
+
+<p><center>
+    <img src="/img/funlib-iter/any.png" alt="any">
+</center></p>
+
+<p>What did I tell you about laziness. Since <code>any</code> aborts as soon as it finds a
+match, the rest of the sequence is not processed. This means that any calls
+affecting the remaining elements do not need to be executed.</p>
+
+<h2>nikic/iter</h2>
+
+<p>All of the examples above are based on <a href="https://twitter.com/nikita_ppv">Nikita
+Popov</a>&#39;s most excellent
+<a href="https://github.com/nikic/iter">iter</a> library.</p>
+
+<p>It makes heavy use of a new feature introduced in PHP 5.5 by Nikita himself:
+Generators. Generators are the magic sauce that make everything lazy. You can
+think of them as a sane way of writing iterators by suspending execution.</p>
+
+<p>The <strong>iter</strong> library is awesome. It has <em>lots</em> of these iteration-related
+functions that are very common in functional languages. I&#39;ll list a few:</p>
+
+<ul>
+<li>map</li>
+<li>filter</li>
+<li>reduce</li>
+<li>zip</li>
+<li>slice</li>
+<li>take</li>
+<li>drop</li>
+<li>repeat</li>
+<li>keys</li>
+<li>values</li>
+<li>any</li>
+<li>all</li>
+<li>flatten</li>
+</ul>
+
+<hr>
+
+<p><center>
+    Use them.
+</center></p>
+
+<hr>
+
+<ol>
+<li><p><a id="ft-1"></a>The <strong>use function</strong> awesomeness requires PHP 5.6. You can
+refer to namespaced functions though. <a id="ft-1" href="#ft-1-src">↩</a></p></li>
+<li><p><a id="ft-2"></a>This repetition is partially inspired by <a href="https://twitter.com/Crell">Larry
+Garfield</a>&#39;s &quot;Functional PHP&quot; talk. <a id="ft-2"
+href="#ft-2-src">↩</a></p></li>
+</ol>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

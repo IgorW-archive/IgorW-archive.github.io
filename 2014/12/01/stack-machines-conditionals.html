@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: Conditionals</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 1st, 2014
+    </div>
+
+    <div class="body">
+        <h1>Stack Machines: Conditionals</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html"><strong>conditionals</strong></a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<p>In previous posts, we have seen that stack machines can be extended with I/O and unconditional jumps to create infinite loops. However, it is not possible to break out of those loops. What a vicious cycle indeed.</p>
+
+<p>We will now take a look at conditional branching as a way of solving this issue, and creating many new ones.</p>
+
+<h2>To jump or not to jump</h2>
+
+<p>One of the most important tools of the modern software maker is the conditional jump. It is the building block out of which conditional expressions, if statements and loops are formed.</p>
+
+<p>The conditional jump is the decision maker, the control structure responsible for change.</p>
+
+<p>A conditional jump will only perform a jump if a certain condition is met. The first such conditional jump instruction is <strong>jump if zero</strong>, also known as <code>jz</code>. It will pop a value from the stack, and if that value is zero, jump. Otherwise, it will fall through.</p>
+
+<p><center>
+    <p><img src="/img/stack-machine-conditionals/jz.gif"></p>
+    <p><em><code>jz</code>, Jay-Z... Get it? I&#39;ll show myself out.</em></p>
+</center></p>
+
+<p>Here we have a typical <strong>do while</strong> loop, implemented using <code>jz</code>:</p>
+
+<p><center>
+    <img src="/img/stack-machine-conditionals/jz-arrows.png">
+</center></p>
+
+<p>Other conditional branching operations include: <strong>jump if not zero</strong>, <strong>jump if equal</strong>, <strong>jump if not equal</strong>, and many more.</p>
+
+<h2>Duplication</h2>
+
+<p>There are different ways in which conditional jumps can be implemented. Since the approach in this post will consume the top of the stack, it will be useful to have a way to duplicate the topmost element of the stack. That allows values to be preserved across conditional jumps.</p>
+
+<p>For this, we can introduce a <code>dup</code> instruction. Its usage would look something like this:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">1 dup +
+</code></pre></div>
+<p>This will push <code>1</code> onto the stack, duplicate the <code>1</code> (pushing a copy of it), then pop the two <code>1</code>s and push their sum. Which is <code>2</code>. In case you didn&#39;t know.</p>
+
+<p>The implementation of <code>dup</code> is straightforward:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">switch ($op) {</span>
+<span class="x">    // ...</span>
+<span class="x">    case &#39;dup&#39;:</span>
+<span class="x">        $stack-&gt;push($stack-&gt;top());</span>
+<span class="x">        break;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>It turns out that <code>dup</code> is a magic copy machine.</p>
+
+<p><center>
+    <img src="/img/stack-machine-conditionals/dup.png">
+</center></p>
+
+<h2>Implementation</h2>
+
+<p>Based on the implementation of <code>jmp</code>:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">if (preg_match(&#39;/^jmp\((.+)\)$/&#39;, $op, $match)) {
+    $label = $match[1];
+    $ip = $labels[$label];
+    continue;
+}
+</code></pre></div>
+<p>It is quite easy to make this jump conditional based on a popped value:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">if (preg_match(&#39;/^jz\((.+)\)$/&#39;, $op, $match)) {
+    $label = $match[1];
+    if ($stack-&gt;pop() === 0) {
+        $ip = $labels[$label];
+    }
+    continue;
+}
+</code></pre></div>
+<p>It is literally the same as <code>jmp</code>, with an added <code>if</code> statement!</p>
+
+<p>Here is another gif, for your viewing pleasure:</p>
+
+<p><center>
+    <img src="/img/stack-machine-conditionals/pinkie-pie-jump-again.gif">
+</center></p>
+
+<h2>Output loop</h2>
+
+<p>Let us revisit the &quot;hello world&quot; example from the <a href="/2014/11/29/stack-machines-io.html">I/O</a> post.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">104 . 101 . 108 . 108 . 111 . 44 . 32 . 119 . 111 . 114 . 108 . 100 . 10 .
+</code></pre></div>
+<p>It pushes the ASCII codes for the string in order and prints them. Would it not be great to extract the outputting logic into a loop?</p>
+
+<p>It can be done. First of all, all characters will be stored on the stack. Because it is a stack, elements are consumed in reverse order of being pushed. This means we need to <strong>reverse the order</strong> here. There also needs to be a <strong>zero at the bottom of the stack</strong> (pushed first) that will mark the end of the string.</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">0 10 100 108 114 111 119 32 44 111 108 108 101 104
+label(loop)
+    dup jz(end)
+    .
+    jmp(loop)
+label(end)
+</code></pre></div>
+<p>This loop will output the characters on the stack until it hits a <code>0</code>, at which point the <code>jz</code> will jump out of the loop to the <code>end</code> label.</p>
+
+<p>It is equivalent to a <strong>while</strong> loop, and as a matter of fact, compilers will compile <strong>while</strong> statements to assembly of roughly the same shape as the above.</p>
+
+<h2>Implications</h2>
+
+<p>The implications of this change are <strong>huge</strong>. This machine is <strong>much</strong> more powerful than all of the previous ones. The reason is that now the execution of the program can change over time. You can now actually break out of loops, allowing them to terminate once some condition is met.</p>
+
+<p>The conditional jump can be used to implement all of the control structures that you know and love: <strong>if</strong>, <strong>while</strong>, <strong>for</strong>, <em>etc</em>. </p>
+
+<p>The conditional jump goes to infinity, but only sometimes. This makes programs unpredictable. But <em>awesomely powerful</em>.</p>
+
+<p><center>
+    <img src="/img/stack-machine-conditionals/inf.png">
+</center></p>
+
+<p><center style="padding: 20px 0;">
+    <em>Turing completeness has almost been achieved.</em>
+</center></p>
+
+<h2>Summary</h2>
+
+<p><span style="background-color: yellow;">
+    Adding conditional jumps to an RPN calculator allows it to perform conditional logic and break out of loops.
+</span></p>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html">io</a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html"><strong>conditionals</strong></a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

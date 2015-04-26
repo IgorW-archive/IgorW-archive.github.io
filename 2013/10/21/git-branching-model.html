@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Git Branching Model</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Oct 21st, 2013
+    </div>
+
+    <div class="body">
+        <h1>Git Branching Model</h1>
+
+<p>Since the original <a href="http://nvie.com/git-model/">A successful Git branching model</a>
+post from <a href="https://twitter.com/nvie">nvie</a> there have been numerous attempts to
+simplify his model. While it is a very solid branching strategy, you do end up
+with a ton of branches that you may not actually need.</p>
+
+<p>This post aims to document the general strategy that has been in use by a
+subset of the PHP community (and likely other communities too), and thus also
+plays nice with <a href="http://semver.org/">semantic versioning</a> and composer.</p>
+
+<blockquote>
+<p>Note: This model is intended for OSS projects. For products, I would
+recommend something <a href="https://gist.github.com/jbenet/ee6c9ac48068889b0912">like
+this</a>.</p>
+</blockquote>
+
+<p><center>
+    <img src="/img/git-branching/branches.png" alt="branches">
+</center></p>
+
+<h2>Versions</h2>
+
+<p>As defined by semantic versioning, versions are in the format
+MAJOR.MINOR.PATCH.</p>
+
+<p><center>
+    <img src="/img/git-branching/version.png" alt="version">
+</center></p>
+
+<h2>Branches</h2>
+
+<p>You generally have one branch per minor version. This means branches like:
+<code>1.0</code>, <code>1.1</code>, <code>1.2</code>, <code>2.0</code>, <code>2.1</code>, <code>2.2</code>, etc. The &quot;latest&quot; version is
+represented by the <code>master</code> branch. This is just a common convention.</p>
+
+<p>But &quot;latest&quot; can mean one of two things. Either it is the development of a yet
+unreleased version. Such as <code>1.1-dev</code> which will eventually become <code>v1.1.0</code>.
+Or alternatively there could already be a release on <code>1.1</code>, and this would be
+the development of the <em>next</em> release, such as <code>v1.1.1</code>.</p>
+
+<h2>Tags</h2>
+
+<p>Releases are identified by tags. A tag represents a patch version and points
+to a commit on the branch of that minor version. The <code>v1.0.0</code> tag points to a
+commit on the <code>1.0</code> branch.</p>
+
+<p>Unlike nvie&#39;s model, this one does not have a dedicated branch for releases,
+since the releases can be inferred from the tags.</p>
+
+<h2>Bugfixes</h2>
+
+<p>In many cases there will be more than one branch active at the same time.
+Bugfixes should generally target the latest supported branch. For example, if
+the <code>1.0</code> branch is no longer being maintained, but <code>1.1</code> and <code>1.2</code> are
+active, then a bugfix should be applied to <code>1.1</code>.</p>
+
+<p>Because <code>1.2</code> is a downstream branch of <code>1.1</code> it will get those bugfixes as
+well. Just periodically merge <code>1.1</code> into <code>1.2</code> and all will be fine.</p>
+
+<h2>Features</h2>
+
+<p>According to semantic versioning, new features should result in a new minor
+version. If the latest release is <code>v1.0.5</code>, then there should be a <code>master</code>
+branch representing <code>1.1</code>. New features should be merged into <code>master</code>. Once
+<code>v1.1.0</code> is released, <code>1.1</code> should be branched off of <code>master</code>, and <code>master</code>
+should become <code>1.2</code>.</p>
+
+<p>For smaller projects this rule can be relaxed and new features can be merged
+into a branch that already has releases. But keep in mind that it makes it
+harder for users to track which version introduced a particular feature.</p>
+
+<h2>Topic branches</h2>
+
+<p>A workflow for contributions is usually based on topic branches. Instead of
+committing to the particular version branch directly, a separate branch is
+made for a particular feature or bugfix where that change can be developed in
+isolation. When ready, that topic branch is then merged into the version
+branch.</p>
+
+<p><center>
+    <img src="/img/git-branching/topic.png" alt="topic">
+</center></p>
+
+<p>If a change spans more than one commit then this allows keeping track of what
+was merged when, and also allows it to be reverted in one go if needed.</p>
+
+<p>More importantly, it allows new features to be prototyped independently
+without making a commitment to those changes.</p>
+
+<p>Topic branches are usually very short-lived and are discarded after being
+merged.</p>
+
+<h2>That&#39;s it</h2>
+
+<p>This post really just documents the process that many of us have been using
+for our projects. If you have anything to add, please share it in the
+comments.</p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

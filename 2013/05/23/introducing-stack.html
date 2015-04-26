@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Introducing Stack</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        May 23rd, 2013
+    </div>
+
+    <div class="body">
+        <p><link rel="stylesheet" type="text/css" href="/css/stack.css"></p>
+
+<h1>Introducing Stack</h1>
+
+<p>In the post titled <a href="/2013/02/02/http-kernel-middlewares.html">HttpKernel
+middlewares</a> I brought up the idea of
+bringing rack middlewares to Symfony2.</p>
+
+<p>In order to solidify this effort I would like to announce a new project:
+<a href="http://stackphp.com">Stack</a>.</p>
+
+<p><center>
+    <h1 class="stack-logo"><a href="http://stackphp.com">Stack</a></h1>
+    <p class="lead">Stack is a convention for composing HttpKernelInterface middlewares.</p>
+</center></p>
+
+<p>The name and logo are based on the idea of building a stack of middleware
+layers, each of which handles a particular piece of logic.</p>
+
+<p>Many thanks to <a href="https://twitter.com/beausimensen">@beausimensen</a> and
+<a href="https://twitter.com/hochchristoph">@hochchristoph</a> who helped make this
+happen.</p>
+
+<h2>Conventions</h2>
+
+<p>The main goal of stack is to give the idea of &quot;HttpKernel middlewares&quot; a name,
+so that we can more easily talk about it.</p>
+
+<p>It aims to make the conventions explicit and clearly define what a middleware
+should do and what it should look like. Following them allows for better
+interoperability and consistency between middlewares.</p>
+
+<p>Check <a href="http://stackphp.com">the stack website</a> for the actual conventions.</p>
+
+<h2>Toolbox</h2>
+
+<p>The <a href="https://github.com/stackphp">stackphp organisation on GitHub</a> contains a
+very small set of basic tools make working with stack middlewares easier.
+However, none of those tools are mandatory.</p>
+
+<p>You can create and use stack middlewares without using any of the provided
+tools, as long as you follow the conventions.</p>
+
+<p>Some of the packages (<a href="https://github.com/stackphp/inline">inline</a>,
+<a href="https://github.com/stackphp/CallableHttpKernel">CallableHttpKernel</a>) are
+targetted towards creators of middlewares. Others
+(<a href="https://github.com/stackphp/session">session</a>, <a href="https://github.com/stackphp/url-map">url-map</a>,
+<a href="https://github.com/stackphp/oauth">oauth</a>) are in fact middlewares that you
+can use with your apps.</p>
+
+<p>The most prominent tool is the <a href="https://github.com/stackphp/builder">builder</a>.
+<em>Stack\Builder</em> is an evolution of the original <em>Stack</em> object from the
+HttpKernel middlewares blog post. This ultimately makes stack usable, and
+provides a basis for configuration.</p>
+
+<h2>The future</h2>
+
+<p>Why HttpKernelInterface? Why limit ourselves to Symfony2? Why not target all
+of PHP?</p>
+
+<p>First of all, Symfony provides a nice sandbox to experiment in. The basic
+primitives are there: An HTTP request/response abstraction, a widely deployed
+interface for sending those requests. Lots of popular frameworks are adopting
+the HttpKernelInterface, which provides a large user base.</p>
+
+<p>Of course, PHP itself also already has such an abstraction. It&#39;s called SAPI.
+It would be interesting to extend the scope of middlewares and target all of
+PHP. But in order to do that properly, PHP core would have to be modified to
+make SAPIs extensible.</p>
+
+<p>If we can prove that the concept works for HttpKernel, the broader PHP
+community might be interested in bringing that capability to PHP core. That&#39;s
+a long journey however, we&#39;ll have to take it one step at a time.</p>
+
+<h1 style="text-align: center;">Go stack some middlewares</h1>
+
+<h1 style="text-align: center;"><a href="http://stackphp.com">stackphp.com</a></h1>
+
+<h1 style="text-align: center;"><a href="http://twitter.com/stackphp">@stackphp</a></h1>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

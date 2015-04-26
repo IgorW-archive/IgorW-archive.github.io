@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stack Machines: I/O</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Nov 29th, 2014
+    </div>
+
+    <div class="body">
+        <h1>Stack Machines: I/O</h1>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html"><strong>io</strong></a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+<p>The RPN calculator (see <a href="/2013/12/02/stack-machines-rpn.html">previous post</a>) allows you to evaluate arithmetical expressions. Once the end of the instruction stream is reached, the top of the stack is returned.</p>
+
+<p>We have learned that an RPN calculator is a little computer. The instructions you feed it are programs. However, the instruction set is quite limited. One of the things we tend to do in computer programs is producing output. But there is no instruction to do that yet!</p>
+
+<p>Luckily, it&#39;s quite easy to introduce such an instruction to the existing machine.</p>
+
+<h2>Characters</h2>
+
+<p>But before we can do so, we need to decide what format the characters should be stored in. This is known as a character set, and a very common one is ASCII. It stores one character per byte. Basically, any character will be represented by a number between 0 and 128.</p>
+
+<p>Since the machine already supports integers, those can be used to store characters. Just push the numbers that correspond to the ASCII characters of your choice onto the stack.</p>
+
+<p>The string <code>hello, world</code> translated to ASCII is:</p>
+
+<div class="ascii-table"><pre style="background-color: yellow; padding: 15px 50px;">
+h   e   l   l   o   ,     w   o   r   l   d   \n
+104 101 108 108 111 44 32 119 111 114 108 100 10
+</pre></div>
+
+<p>See the full list of available characters, please check <a href="http://www.unicode.org/charts/PDF/U0000.pdf">the standard</a>.</p>
+
+<h2>Output</h2>
+
+<p>So let us introduce a new instruction that will pop a number off the stack and output its ASCII representation. The instruction will be called <code>.</code>, and placing it in a program will allow it to be executed.</p>
+
+<p>Here is a modified RPN calculator that supports outputting characters:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$stack = new SplStack();</span>
+
+<span class="x">foreach ($ops as $op) {</span>
+<span class="x">    if (is_numeric($op)) {</span>
+<span class="x">        $stack-&gt;push((int) $op);</span>
+<span class="x">        continue;</span>
+<span class="x">    }</span>
+
+<span class="x">    switch ($op) {</span>
+<span class="x">        case &#39;+&#39;:</span>
+<span class="x">            $b = $stack-&gt;pop();</span>
+<span class="x">            $a = $stack-&gt;pop();</span>
+<span class="x">            $stack-&gt;push($a + $b);</span>
+<span class="x">            break;</span>
+<span class="x">        // ...</span>
+<span class="x">        case &#39;.&#39;:</span>
+<span class="x">            echo chr($stack-&gt;pop());</span>
+<span class="x">            break;</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>As you can see, it is just a matter of adding one new <code>case</code> to the <code>switch</code> statement. This allows the machine to be extended very easily.</p>
+
+<h2>Hello World</h2>
+
+<p>Now that the instruction is implemented, we can write an actual program that uses it. This is just a matter of pushing the string character by character, and outputting it in between.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$code = &#39;104 . 101 . 108 . 108 . 111 . 44 . 32 . 119 . 111 . 114 . 108 . 100 . 10 .&#39;;</span>
+<span class="x">$ops = explode(&#39; &#39;, $code);</span>
+</code></pre></div>
+<p>Quite a lot of instructions are needed. One output instruction per character. But it works!</p>
+
+<p>It ouputs: <em>&quot;hello, world&quot;</em>!</p>
+
+<h2>Input</h2>
+
+<p>Just like printing values to stdout, it would also be possible to read from stdin. This would be quite an easy addition. It would allow for fully interactive programs.</p>
+
+<p>This is left as an exercise to the reader.</p>
+
+<h2>Summary</h2>
+
+<p><span style="background-color: yellow;">
+    Adding I/O instructions to an RPN calculator allows it to interact with the Real World (tm).
+</span></p>
+
+<hr>
+
+<p><a href="/2013/08/28/stack-machines-fundamentals.html">fundamentals</a> &lt;&lt;
+<a href="/2013/12/02/stack-machines-rpn.html">rpn-calculator</a> &lt;&lt;
+<a href="/2013/12/03/stack-machines-shunting-yard.html">shunting-yard</a> &lt;&lt;
+<a href="/2014/11/29/stack-machines-io.html"><strong>io</strong></a> &lt;&lt;
+<a href="/2014/11/30/stack-machines-jumps.html">jumps</a> &lt;&lt;
+<a href="/2014/12/01/stack-machines-conditionals.html">conditionals</a> &lt;&lt;
+<a href="/2014/12/02/stack-machines-comments.html">comments</a> &lt;&lt;
+<a href="/2014/12/03/stack-machines-calls.html">calls</a> &lt;&lt;
+<a href="/2014/12/04/stack-machines-variables.html">variables</a> &lt;&lt;
+<a href="/2014/12/05/stack-machines-stack-frames.html">stack-frames</a> &lt;&lt;
+<a href="/2014/12/12/stack-machines-heap.html">heap</a> &lt;&lt;
+<a href="/2014/12/18/stack-machines-compilers.html">compilers</a></p>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+

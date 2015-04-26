@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Probabilistic Automata</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/main.css?v=2">
+    <link rel="stylesheet" href="/css/github.css">
+    <link rel="alternate" href="/index.atom" type="application/atom+xml" title="All">
+    <link rel="alternate" href="/tags/php.atom" type="application/atom+xml" title="PHP">
+    <link rel="alternate" href="/tags/symfony.atom" type="application/atom+xml" title="symfony">
+    <meta name="viewport" content="initial-scale=1.0">
+</head>
+<body>
+
+<div class="container-fluid">
+
+    <nav>
+        <i class="icon-home"></i> <a href="/archive.html">home</a>
+        &nbsp;<i class="icon-bullhorn"></i> <a href="/talks.html">talks</a>
+        &nbsp;<i class="icon-book"></i> <a href="/bookshelf.html">bookshelf</a>
+        &nbsp;<i class="icon-file"></i> <a href="/papershelf.html">papershelf</a>
+        &nbsp;<i class="icon-facetime-video"></i> <a href="/videoshelf.html">videoshelf</a>
+    </nav>
+
+
+<article class="post">
+    <div class="date pull-right">
+        Dec 22nd, 2014
+    </div>
+
+    <div class="body">
+        <h1>Probabilistic Automata</h1>
+
+<p>Have you seen those twitter bots that generate fake or parody tweets? The ones that look almost legit but are pretty much complete jibberish when you read them?</p>
+
+<p>Quite often, such accounts use a so-called markov chain to generate the text. A markov chain is a state machine that has probabilistic transitions.</p>
+
+<p>Examples include <a href="http://pdos.csail.mit.edu/scigen/">scigen</a>, <a href="http://tinysubversions.com/">tiny subversions</a>, and erikaheidi&#39;s <a href="http://socialautomata.me/">socialautomata</a>.</p>
+
+<h2>Shannon</h2>
+
+<p>Here is Claude Shannon, who invented some pretty cool stuff. He&#39;s kind of a big deal. In this picture he is most likely not giving a fuck.</p>
+
+<p><center>
+    <img src="/img/markov/shannon.jpg">
+</center></p>
+
+<p>Seriously though, he did some awesome shit.</p>
+
+<p>In 1948 Shannon published a rather important paper in the <em>The Bell System Technical Journal</em>. It was titled <strong>A Mathematical Theory of Communication</strong><sup><a id="ft-1-src"></a><a href="#ft-1">1</a></sup>.</p>
+
+<p>It is considered to be the paper that laid down the foundations for the field of information theory. In the first section, Shannon talks about <em>discrete noiseless systems</em> and as an example of an information source for such a system, written language.</p>
+
+<p>He shows a way to model a language based on the letter frequencies, by using a markov chain, which can be used to approximate, say, English. This quote should give a rough idea of how it works:</p>
+
+<blockquote>
+<p>To construct [a second-order approximation] for example, one opens a book at random and selects a letter at random on the page. This letter is recorded. The book is then opened to another page and one reads until this letter is encountered. The succeeding letter is then recorded. Turning to another page this second letter is searched for and the succeeding letter recorded, etc.</p>
+</blockquote>
+
+<p>The example of generated text from the second-order word approximation is:</p>
+
+<blockquote>
+<p>THE HEAD AND IN FRONTAL ATTACK ON AN ENGLISH WRITER THAT THE CHARACTER OF THIS POINT IS THEREFORE ANOTHER METHOD FOR THE LETTERS THAT THE TIME OF WHO EVER TOLD THE PROBLEM FOR AN UNEXPECTED.</p>
+</blockquote>
+
+<p>This mostly laid the groundwork for a lot of twitter bots.</p>
+
+<h2>Deterministic Finite Automaton</h2>
+
+<p>The deterministic state machine defines a class of computations that is not turing complete. Any regular expression can be compiled down to such a state machine.</p>
+
+<p><center>
+    <img src="/img/markov/dfa.png">
+</center></p>
+
+<p>Implementing such a state machine is rather trivial, it is a <em>foreach</em> loop and a key lookup:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$rules = [</span>
+<span class="x">    0 =&gt; [&#39;a&#39; =&gt; 1],</span>
+<span class="x">    1 =&gt; [&#39;b&#39; =&gt; 0],</span>
+<span class="x">];</span>
+
+<span class="x">$state = 0;</span>
+<span class="x">$tokens = str_split(&#39;abab&#39;);</span>
+
+<span class="x">foreach ($tokens as $token) {</span>
+<span class="x">    $state = $rules[$state][$token];</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>DFAs are mostly used for <em>matching</em> existing text against regular expressions.</p>
+
+<h2>Generating</h2>
+
+<p>However, with some very small extensions it is possible to make this machine generate output based on the same transition rules:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$rules = [</span>
+<span class="x">    0 =&gt; [&#39;a&#39; =&gt; 1],</span>
+<span class="x">    1 =&gt; [&#39;b&#39; =&gt; 0],</span>
+<span class="x">];</span>
+
+<span class="x">$state = 0;</span>
+<span class="x">$output = &#39;&#39;;</span>
+
+<span class="x">foreach (range(1, 6) as $i) {</span>
+<span class="x">    $tokens = array_keys($rules[$state]);</span>
+<span class="x">    $token = $tokens[array_rand($tokens)];</span>
+<span class="x">    $output .= $token;</span>
+<span class="x">    $state = $rules[$state][$token];</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Back in the days there were no random number generators yet. Thus, Shannon had to use a book of random numbers. Luckily, we have algorithms for that now.</p>
+
+<p>This modified state machine will randomly pick one of the possible tokens it could transition to.</p>
+
+<p>And sure enough, this example generates the sequence <code>ababab</code>.</p>
+
+<h2>Probabilities</h2>
+
+<p>As it stands, the machine uses <code>array_rand</code>, which means it will pick the next character with an equal probability for all possibilities. If we want to model full languages though, we will need to allow certain sequences to be more probable than others.</p>
+
+<p>This can be done by copy-pasting a function from StackOverflow:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function weighted_pick(array $weighted_values) {</span>
+<span class="x">    $rand = mt_rand(1, (int) array_sum($weighted_values));</span>
+
+<span class="x">    foreach ($weighted_values as $key =&gt; $weight) {</span>
+<span class="x">        $rand -= $weight;</span>
+<span class="x">        if ($rand &lt;= 0) {</span>
+<span class="x">            return $key;</span>
+<span class="x">        }</span>
+<span class="x">    }</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Very well, now to make this work properly, we will change the format for the transition rules a bit. The new format will be:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$rules = [</span>
+<span class="x">    &#39;a&#39; =&gt; [&#39;b&#39; =&gt; 1, &#39;c&#39; =&gt; 2],</span>
+<span class="x">    &#39;b&#39; =&gt; [&#39;a&#39; =&gt; 1],</span>
+<span class="x">    ...</span>
+<span class="x">];</span>
+</code></pre></div>
+<p>The states have been replaced with the characters. Merging the two concepts simplifies implementation a lot. The letter <code>a</code> will be followed by the letter <code>b</code> with a probability corresponding to the weight 1 and <code>c</code> with weight 2.</p>
+
+<p>In other words, <code>a</code> will be followed by <code>b</code> 33% of the time and by <code>c</code> 66% of the time.</p>
+
+<h2>Building rules</h2>
+
+<p>With that annoying stuff out of the way, we can do something really amazing. We can dynamically build a set of transition rules, based on some input text!</p>
+
+<p>This means we can feed some text to generate the rules, then produce statistically similar text from them!</p>
+
+<p>As a matter of fact, we will use some tricks here:</p>
+
+<ul>
+<li><p>For the transitions we will consider the last n characters (where n is adjustable).</p></li>
+<li><p>We will also <em>produce</em> n characters (a unit known as n-gram) in each transition, this gives us more better words.</p></li>
+</ul>
+
+<p>This produces much better results, as we will see.</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$n = 4;</span>
+<span class="x">$rules = [];</span>
+
+<span class="x">$source = &#39;With that annoying stuff out of the way, we can do something really amazing. We can dynamically build a set of transition rules, based on some input text! This means we can feed some text to generate the rules, then produce statistically similar text from them!&#39;;</span>
+
+<span class="x">foreach (range($n, strlen($source)-4) as $i) {</span>
+<span class="x">    $ngram_a = substr($source, $i - $n, $n);</span>
+<span class="x">    $ngram_b = substr($source, $i, $n);</span>
+
+<span class="x">    if (!isset($rules[$ngram_a][$ngram_b])) {</span>
+<span class="x">        $rules[$ngram_a][$ngram_b] = 0;</span>
+<span class="x">    }</span>
+
+<span class="x">    $rules[$ngram_a][$ngram_b]++;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Running this example will build a set of rules that looks like this:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$rules = [</span>
+<span class="x">    &#39;With&#39; =&gt; [&#39; tha&#39; =&gt; 1],</span>
+<span class="x">    &#39;ith &#39; =&gt; [&#39;that&#39; =&gt; 1],</span>
+<span class="x">    &#39;th t&#39; =&gt; [&#39;hat &#39; =&gt; 1],</span>
+<span class="x">    &#39;h th&#39; =&gt; [&#39;at a&#39; =&gt; 1],</span>
+<span class="x">    &#39; tha&#39; =&gt; [&#39;t an&#39; =&gt; 1],</span>
+<span class="x">    &#39;that&#39; =&gt; [&#39; ann&#39; =&gt; 1],</span>
+<span class="x">    &#39;hat &#39; =&gt; [&#39;anno&#39; =&gt; 1],</span>
+<span class="x">    &#39;at a&#39; =&gt; [&#39;nnoy&#39; =&gt; 1],</span>
+<span class="x">    ...</span>
+<span class="x">];</span>
+</code></pre></div>
+<p>We can now generate random text based on these transitions:</p>
+<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$state = &#39;With&#39;;</span>
+<span class="x">$output = &#39;&#39;;</span>
+
+<span class="x">foreach (range(1, 20) as $i) {</span>
+<span class="x">    $output .= $state;</span>
+<span class="x">    if (!isset($rules[$state])) {</span>
+<span class="x">        // no transition found for state</span>
+<span class="x">        break;</span>
+<span class="x">    }</span>
+<span class="x">    $state = weighted_pick($rules[$state]);</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>Here are some of the produced examples:</p>
+
+<ul>
+<li><p>With that annoying stuff out of transition rules, then produce statistically ama</p></li>
+<li><p>With that annoying stuff out of the way, we can do something really build a set</p></li>
+<li><p>With that annoying stuff out of the way, we can feed something really amazing. W</p></li>
+<li><p>With that annoying stuff out of the rules, then produce statistically build a se</p></li>
+</ul>
+
+<p>These 4-grams produce english text, even for a really small input size!</p>
+
+<h2>Results</h2>
+
+<p>We can now start playing with multiple sources, mixing them and generating weird text based off of them.</p>
+
+<p>I&#39;ll go with the classic and use my own twitter feed<sup><a id="ft-2-src"></a><a href="#ft-2">2</a></sup>:</p>
+
+<blockquote>
+    sign a CLA just to get started, and I already quite powerful that programmer: @igorwesome will talk about abstractions for me. Even with php://memory. For testing, no template engine, so much. ❤
+</blockquote>
+
+<blockquote>
+    stop this machine has gödel numbers and memory will be phpeople, because they dug it up, the current approach seems more likely has too much?"
+</blockquote>
+
+<blockquote>
+    about Design, Composition is the same as static classes. More statement followed by sinatra dependency. Also, a brain-eating any emails from your #Silex with companies to pay money.
+</blockquote>
+
+<blockquote>
+    see important part needs goto fail; goto fail; goto fail; goto fail; goto fail; goto fail; goto when you think of your choice to put in your Application/json'))
+</blockquote>
+
+<hr>
+
+<ol>
+<li><p><a id="ft-1"></a><a href="http://cm.bell-labs.com/cm/ms/what/shannonday/shannon1948.pdf">Claude Shannon, A Mathematical Theory of Communication</a> <a id="ft-1" href="#ft-1-src">↩</a></p></li>
+<li><p><a id="ft-2"></a><a href="https://gist.github.com/igorw/ba5e4c9562d19b89ef56">Gist of tweet generating markov chain</a> <a id="ft-2" href="#ft-2-src">↩</a></p></li>
+</ol>
+
+    </div>
+</article>
+
+<div class="author">
+    <div class="avatar">
+        <img src="/img/igor.jpg" alt="Igor">
+    </div>
+
+    <div class="details">
+        <p>Brought to you by <a href="https://twitter.com/igorwhiletrue">@igorwhiletrue</a>.</p>
+        <p>
+            Projects you may be interested in:
+            <a href="https://github.com/fabpot/Silex">Silex</a>,
+            <a href="http://stackphp.com">Stack</a>,
+            <a href="http://yolophp.com">YOLO</a>,
+            <a href="http://reactphp.org">React</a>.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<script src="/js/highlight.pack.js"></script>
+<script src="/js/main.js?v=2"></script>
+
+</body>
+</html>
+
